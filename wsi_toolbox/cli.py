@@ -391,11 +391,10 @@ class CLI(BaseMLCLI):
         input_path: str = Field(..., l='--in', s='-i')
         output_path: str = Field('', l='--out', s='-o')
         model: str = Field(DEFAULT_MODEL, choice=['gigapath', 'uni', 'none'])
-        alpha: float = 0.5
         size: int = 64
         open: bool = False
 
-    def run_preview_latent_pca(self, a:PreviewArgs):
+    def run_preview_latent_pca(self, a:PreviewLatentPcaArgs):
         output_path = a.output_path
         if not output_path:
             base, ext = os.path.splitext(a.input_path)
@@ -418,11 +417,10 @@ class CLI(BaseMLCLI):
         input_path: str = Field(..., l='--in', s='-i')
         output_path: str = Field('', l='--out', s='-o')
         model: str = Field(DEFAULT_MODEL, choice=['gigapath', 'uni', 'none'])
-        alpha: float = 0.5
         size: int = 64
         open: bool = False
 
-    def run_preview_latent(self, a:PreviewArgs):
+    def run_preview_latent(self, a:PreviewLatentArgs):
         output_path = a.output_path
         if not output_path:
             base, ext = os.path.splitext(a.input_path)
