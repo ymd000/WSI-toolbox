@@ -59,7 +59,7 @@ class CLI(BaseMLCLI):
         overwrite: bool = param(False, s='-O')
         engine: str = param('auto', choices=['auto', 'openslide', 'tifffile'])
         mpp: float = 0
-        rotate: bool = False
+        norotate: bool = False
 
     def run_wsi2h5(self, a:Wsi2h5Args):
         output_path = a.output_path
@@ -82,7 +82,7 @@ class CLI(BaseMLCLI):
             patch_size=a.patch_size,
             engine=a.engine,
             mpp=a.mpp,
-            rotate=a.rotate
+            rotate=not a.norotate
         )
         result = cmd(a.input_path, output_path)
         print(f"done: {result['patch_count']} patches extracted")

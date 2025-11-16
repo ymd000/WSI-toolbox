@@ -41,7 +41,7 @@ class Wsi2HDF5Command:
                  patch_size: int = 256,
                  engine: str = 'auto',
                  mpp: float = 0,
-                 rotate: bool = False):
+                 rotate: bool = True):
         """
         Initialize WSI to HDF5 converter
 
