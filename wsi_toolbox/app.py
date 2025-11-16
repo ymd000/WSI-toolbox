@@ -1,6 +1,7 @@
 import re
 import time
 import os
+import warnings
 from pathlib import Path as P
 import sys
 from enum import Enum, auto
@@ -27,8 +28,15 @@ from .utils.st import st_horizontal
 from .utils import plot_umap
 from . import commands
 
+# Suppress warnings
+# sklearn 1.6+ internal deprecation warning
+warnings.filterwarnings('ignore', category=FutureWarning, message='.*force_all_finite.*')
+# timm library internal torch.load warning
+warnings.filterwarnings('ignore', category=FutureWarning, message="You are using `torch.load` with `weights_only=False`")
 
 commands.set_default_progress('streamlit')
+commands.set_default_device('cuda')
+
 Image.MAX_IMAGE_PIXELS = 3_500_000_000
 
 # Global constants
@@ -443,7 +451,6 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
                     with st.spinner(f'{model_label}特徴量を抽出中...', show_time=True):
                         # Use new command pattern
                         commands.set_default_model(st.session_state.model)
-                        commands.set_default_device('cuda')
                         cmd = commands.PatchEmbeddingCommand(batch_size=BATCH_SIZE, overwrite=True)
                         result = cmd(hdf5_path)
                     st.write(f'{model_label}特徴量の抽出完了。')
@@ -607,17 +614,22 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
         for f in selected_files:
             if not f.detail or not f.detail.has_features:
                 st.write(f'{f.name}の特徴量が未抽出なので、抽出を行います。')
-                tile_proc = TileProcessor(model_name=st.session_state.model, device='cuda')
+                # Use new command pattern
+                commands.set_default_model(st.session_state.model)
                 with st.spinner(f'{model_label}特徴量を抽出中...', show_time=True):
-                    tile_proc.evaluate_hdf5_file(f.path, batch_size=BATCH_SIZE, progress='streamlit', overwrite=True)
+                    cmd = commands.PatchEmbeddingCommand(batch_size=BATCH_SIZE, overwrite=True)
+                    result = cmd(f.path)
                 st.write(f'{model_label}特徴量の抽出完了。')
 
-        cluster_proc = ClusterProcessor(
-                [f.path for f in selected_files],
-                model_name=st.session_state.model,
-                cluster_name=cluster_name,
-                cluster_filter=subcluster_filter,
-                )
+        # Use new command pattern
+        commands.set_default_model(st.session_state.model)
+        cluster_cmd = commands.ClusteringCommand(
+            resolution=resolution,
+            cluster_name=cluster_name,
+            cluster_filter=subcluster_filter,
+            use_umap=use_umap_embs,
+            overwrite=overwrite
+        )
 
         t = 'と'.join([f.name for f in selected_files])
         with st.spinner(f'{t}をクラスタリング中...', show_time=True):
@@ -630,11 +642,12 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
                 base += f'_{subcluster_label}'
             umap_path = str(p.parent / f'{base}_umap.png')
 
-            cluster_proc.anlyze_clusters(resolution=resolution,
-                                         overwrite=overwrite,
-                                         use_umap_embs=use_umap_embs,
-                                         progress='streamlit')
-            cluster_proc.plot_umap(fig_path=umap_path)
+            result = cluster_cmd([f.path for f in selected_files])
+
+            # Plot UMAP
+            umap_embs = cluster_cmd.get_umap_embeddings()
+            fig = plot_umap(umap_embs, cluster_cmd.total_clusters)
+            fig.savefig(umap_path, bbox_inches='tight', pad_inches=0.5)
 
         st.subheader('UMAP投射 + クラスタリング')
         umap_filename = os.path.basename(umap_path)
@@ -645,11 +658,10 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
 
         with st.spinner('オーバービュー生成中...', show_time=True):
             for f in selected_files:
-                thumb_proc = PreviewClustersProcessor(
-                        f.path,
-                        model_name=st.session_state.model,
-                        size=THUMBNAIL_SIZE
-                        )
+                # Use new command pattern
+                commands.set_default_model(st.session_state.model)
+                preview_cmd = commands.PreviewClustersCommand(size=THUMBNAIL_SIZE)
+
                 p = P(f.path)
                 if len(selected_files) > 1:
                     base = f'{cluster_name}_{p.stem}'
@@ -667,9 +679,7 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
                 else:
                     c = cluster_name
 
-                thumb = thumb_proc.create_thumbnail(
-                        cluster_name=c,
-                        progress='streamlit')
+                thumb = preview_cmd(f.path, cluster_name=c)
                 thumb.save(thumb_path)
                 st.subheader('オーバービュー')
                 thumb_filename = os.path.basename(thumb_path)
