@@ -31,7 +31,8 @@ import timm
 from gigapath import slide_encoder
 
 from .processor import WSIProcessor, TileProcessor, ClusterProcessor, \
-        PreviewClustersProcessor, PreviewScoresProcessor, PreviewLatentPCAProcessor, PreviewLatentClusterProcessor
+        PreviewClustersProcessor, PreviewScoresProcessor, PreviewLatentPCAProcessor, PreviewLatentClusterProcessor, \
+        PyramidDziExportProcessor
 from .common import DEFAULT_MODEL, create_model
 from .utils import plot_umap
 from .utils.cli import BaseMLCLI, BaseMLArgs
@@ -438,6 +439,33 @@ class CLI(BaseMLCLI):
 
         if a.open:
             os.system(f'xdg-open {output_path}')
+
+
+    class ExportDziArgs(CommonArgs):
+        input_h5: str = Field(..., l='--input', s='-i', description='入力HDF5ファイルパス')
+        output_dir: str = Field(..., l='--output', s='-o', description='出力ディレクトリ')
+        jpeg_quality: int = Field(90, s='-q', description='JPEG品質(1-100)')
+        fill_empty: bool = Field(False, l='--fill-empty', description='空白パッチに黒画像を出力')
+
+    def run_export_dzi(self, a: ExportDziArgs):
+        """Export HDF5 patches to Deep Zoom Image (DZI) format for OpenSeadragon"""
+        # Get name from H5 filename
+        name = P(a.input_h5).stem
+
+        # Use specified output directory as-is
+        output_dir = P(a.output_dir)
+
+        processor = PyramidDziExportProcessor()
+        
+        processor.export_to_dzi(
+            h5_path=a.input_h5,
+            output_dir=str(output_dir),
+            name=name,
+            jpeg_quality=a.jpeg_quality,
+            fill_empty=a.fill_empty,
+            progress='tqdm'
+        )
+        print(f'Export completed: {output_dir}/{name}.dzi')
 
 
 if __name__ == '__main__':
