@@ -183,13 +183,15 @@ class WSIProcessor:
                 engine = 'openslide'
             print(f'using {engine} engine for {os.path.basename(image_path)}')
 
+        # Extract mpp before engine-specific handling
+        mpp = extra.pop('mpp', None)
+
         self.engine = engine.lower()
         if engine == 'openslide':
             self.wsi = OpenSlideFile(image_path)
         elif engine == 'tifffile':
             self.wsi = TiffFile(image_path)
         elif engine == 'standard':
-            mpp = extra.pop('mpp', None)
             self.wsi = StandardImage(image_path, mpp=mpp)
         else:
             raise ValueError('Invalid engine', engine)

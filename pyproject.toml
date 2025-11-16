@@ -44,7 +44,7 @@ dependencies = [
     "torch==2.5.1",
     "torchvision==0.20.1",
     "umap-learn>=0.5.7",
-    "zarr<3",
+    "zarr>=3",
 ]
 
 [tool.uv.sources]
