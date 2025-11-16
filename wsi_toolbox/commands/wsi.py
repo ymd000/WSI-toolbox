@@ -5,10 +5,23 @@ WSI to HDF5 conversion command
 import cv2
 import h5py
 import numpy as np
+from pydantic import BaseModel
 
 from ..wsi_files import create_wsi_file
 from ..utils.helpers import is_white_patch
 from . import _config, _progress
+
+
+class Wsi2HDF5Result(BaseModel):
+    """Result of WSI to HDF5 conversion"""
+    mpp: float
+    original_mpp: float
+    scale: int
+    patch_count: int
+    patch_size: int
+    cols: int
+    rows: int
+    output_path: str
 
 
 class Wsi2HDF5Command:
@@ -48,7 +61,7 @@ class Wsi2HDF5Command:
         self.mpp = mpp
         self.rotate = rotate
 
-    def __call__(self, input_path: str, output_path: str) -> dict:
+    def __call__(self, input_path: str, output_path: str) -> Wsi2HDF5Result:
         """
         Execute WSI to HDF5 conversion
 
@@ -57,7 +70,7 @@ class Wsi2HDF5Command:
             output_path: Path to output HDF5 file
 
         Returns:
-            dict: Metadata including mpp, scale, patch_count
+            Wsi2HDF5Result: Metadata including mpp, scale, patch_count
         """
         # Create WSI reader
         wsi = create_wsi_file(input_path, engine=self.engine, mpp=self.mpp)
@@ -171,13 +184,13 @@ class Wsi2HDF5Command:
         if _config.verbose and _config.progress == 'tqdm':
             print(f'{patch_count} patches were selected.')
 
-        return {
-            'mpp': mpp,
-            'original_mpp': original_mpp,
-            'scale': scale,
-            'patch_count': patch_count,
-            'patch_size': S,
-            'cols': x_patch_count,
-            'rows': y_patch_count,
-            'output_path': output_path
-        }
+        return Wsi2HDF5Result(
+            mpp=mpp,
+            original_mpp=original_mpp,
+            scale=scale,
+            patch_count=patch_count,
+            patch_size=S,
+            cols=x_patch_count,
+            rows=y_patch_count,
+            output_path=output_path
+        )

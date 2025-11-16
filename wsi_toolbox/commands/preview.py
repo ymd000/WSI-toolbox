@@ -6,6 +6,8 @@ import h5py
 import numpy as np
 from PIL import Image, ImageFont
 from matplotlib import pyplot as plt, colors as mcolors
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.decomposition import PCA
 
 from ..utils import create_frame, get_platform_font
 from . import _get, _progress
@@ -196,3 +198,138 @@ class PreviewScoresCommand(BasePreviewCommand):
 
         color = mcolors.rgb2hex(data['cmap'](score)[:3])
         return create_frame(self.size, color, f'{score:.3f}', data['font'])
+
+
+class PreviewLatentPCACommand(BasePreviewCommand):
+    """
+    Generate thumbnail with latent PCA visualization
+
+    Usage:
+        cmd = PreviewLatentPCACommand(size=64)
+        image = cmd(hdf5_path='data.h5', alpha=0.5)
+    """
+
+    def _prepare(self, f: h5py.File, alpha: float = 0.5):
+        """
+        Prepare latent PCA visualization data
+
+        Args:
+            f: HDF5 file handle
+            alpha: Transparency of overlay (0.0-1.0)
+
+        Returns:
+            dict with 'overlays' and 'alpha_mask'
+        """
+        # Load latent features
+        h = f[f'{self.model_name}/latent_features'][()]  # B, L(16x16), EMB(1024)
+        h = h.astype(np.float32)
+        s = h.shape
+
+        # Estimate original latent size
+        latent_size = int(np.sqrt(s[1]))  # l = sqrt(L)
+        # Validate dyadicity
+        assert latent_size**2 == s[1]
+        if self.size % latent_size != 0:
+            print(f'WARNING: {self.size} is not divisible by {latent_size}')
+
+        # Apply PCA
+        pca = PCA(n_components=3)
+        latent_pca = pca.fit_transform(h.reshape(s[0] * s[1], s[-1]))  # B*L, 3
+
+        # Normalize to [0, 1]
+        scaler = MinMaxScaler()
+        latent_pca = scaler.fit_transform(latent_pca)
+
+        # Reshape and convert to RGB
+        latent_pca = latent_pca.reshape(s[0], latent_size, latent_size, 3)
+        overlays = (latent_pca * 255).astype(np.uint8)  # B, l, l, 3
+
+        # Create alpha mask
+        alpha_mask = Image.new('L', (self.size, self.size), int(alpha * 255))
+
+        return {'overlays': overlays, 'alpha_mask': alpha_mask, 'latent_size': latent_size}
+
+    def _get_frame(self, index: int, data, f: h5py.File):
+        """
+        Get latent PCA overlay as a frame for patch at index
+
+        Args:
+            index: Patch index
+            data: Data prepared by _prepare()
+            f: HDF5 file handle
+
+        Returns:
+            PIL.Image: RGBA overlay image
+        """
+        # Get overlay for this patch
+        overlay = Image.fromarray(data['overlays'][index]).convert('RGBA')
+        overlay = overlay.resize((self.size, self.size), Image.NEAREST)
+
+        # Apply alpha mask to make it an overlay
+        overlay.putalpha(data['alpha_mask'])
+
+        return overlay
+
+
+class PreviewLatentClusterCommand(BasePreviewCommand):
+    """
+    Generate thumbnail with latent cluster visualization
+
+    Usage:
+        cmd = PreviewLatentClusterCommand(size=64)
+        image = cmd(hdf5_path='data.h5', alpha=0.5)
+    """
+
+    def _prepare(self, f: h5py.File, alpha: float = 0.5):
+        """
+        Prepare latent cluster visualization data
+
+        Args:
+            f: HDF5 file handle
+            alpha: Transparency of overlay (0.0-1.0)
+
+        Returns:
+            dict with 'overlays' and 'alpha_mask'
+        """
+        # Load latent clusters
+        clusters = f[f'{self.model_name}/latent_clusters'][()]  # B, L(16x16)
+        s = clusters.shape
+
+        # Estimate original latent size
+        latent_size = int(np.sqrt(s[1]))  # l = sqrt(L)
+        # Validate dyadicity
+        assert latent_size**2 == s[1]
+        if self.size % latent_size != 0:
+            print(f'WARNING: {self.size} is not divisible by {latent_size}')
+
+        # Apply colormap
+        cmap = plt.get_cmap('tab20')
+        latent_map = cmap(clusters)
+        latent_map = latent_map.reshape(s[0], latent_size, latent_size, 4)
+        overlays = (latent_map * 255).astype(np.uint8)  # B, l, l, 4
+
+        # Create alpha mask
+        alpha_mask = Image.new('L', (self.size, self.size), int(alpha * 255))
+
+        return {'overlays': overlays, 'alpha_mask': alpha_mask, 'latent_size': latent_size}
+
+    def _get_frame(self, index: int, data, f: h5py.File):
+        """
+        Get latent cluster overlay as a frame for patch at index
+
+        Args:
+            index: Patch index
+            data: Data prepared by _prepare()
+            f: HDF5 file handle
+
+        Returns:
+            PIL.Image: RGBA overlay image
+        """
+        # Get overlay for this patch
+        overlay = Image.fromarray(data['overlays'][index]).convert('RGBA')
+        overlay = overlay.resize((self.size, self.size), Image.NEAREST)
+
+        # Apply alpha mask to make it an overlay
+        overlay.putalpha(data['alpha_mask'])
+
+        return overlay

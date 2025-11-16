@@ -15,7 +15,6 @@ from matplotlib import pyplot as plt, colors as mcolors
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox, TextArea, VPacker
 import seaborn as sns
 import h5py
-import umap
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.neighbors import NearestNeighbors
 from sklearn.cluster import DBSCAN
@@ -30,9 +29,7 @@ from torch.amp import autocast
 import timm
 from gigapath import slide_encoder
 
-from .processor import TileProcessor, ClusterProcessor, \
-        PreviewClustersProcessor, PreviewScoresProcessor, PreviewLatentPCAProcessor, PreviewLatentClusterProcessor, \
-        PyramidDziExportProcessor
+# Processor imports removed - using commands pattern instead
 from . import commands
 from .models import DEFAULT_MODEL, create_model
 from .utils import plot_umap
@@ -44,7 +41,7 @@ from .utils.progress import tqdm_or_st
 warnings.filterwarnings('ignore', category=FutureWarning, message='.*force_all_finite.*')
 warnings.filterwarnings('ignore', category=FutureWarning, message="You are using `torch.load` with `weights_only=False`")
 
-
+commands.set_default_progress('tqdm')
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
@@ -65,9 +62,6 @@ class CLI(BaseMLCLI):
         rotate: bool = False
 
     def run_wsi2h5(self, a:Wsi2h5Args):
-        # Set global defaults (once per CLI execution)
-        commands.set_default_progress('tqdm')
-
         output_path = a.output_path
         if not output_path:
             base, ext = os.path.splitext(a.input_path)
@@ -93,29 +87,27 @@ class CLI(BaseMLCLI):
         result = cmd(a.input_path, output_path)
         print(f"done: {result['patch_count']} patches extracted")
 
-    class ProcessPatchesArgs(CommonArgs):
+    class EmbedArgs(CommonArgs):
         input_path: str = Field(..., l='--in', s='-i')
         batch_size: int = Field(512, s='-B')
         overwrite: bool = Field(False, s='-O')
         model_name: str = Field(DEFAULT_MODEL, choice=['gigapath', 'uni'], l='--model', s='-M')
         with_latent_features: bool = Field(False, s='-L')
 
-    def run_process_patches(self, a):
-        # Set global config
-        commands.set_default_progress('tqdm')
+    def run_embed(self, a:EmbedArgs):
         commands.set_default_model(a.model_name)
         commands.set_default_device(a.device)
 
         # Use new command pattern
-        cmd = commands.TileEmbeddingCommand(
+        cmd = commands.PatchEmbeddingCommand(
             batch_size=a.batch_size,
             with_latent=a.with_latent_features,
             overwrite=a.overwrite
         )
         result = cmd(a.input_path)
 
-        if not result.get('skipped'):
-            print(f"done: {result['feature_dim']}D features extracted")
+        if not result.skipped:
+            print(f"done: {result.feature_dim}D features extracted")
 
 
     class ProcessSlideArgs(CommonArgs):
@@ -172,13 +164,11 @@ class CLI(BaseMLCLI):
         model: str = Field(DEFAULT_MODEL, choices=['gigapath', 'uni', 'virchow2'])
         resolution: float = 1
         use_umap_embs: float = False
-        nosave: bool = False
+        save: bool = False
         noshow: bool = False
         overwrite: bool = Field(False, s='-O')
 
     def run_cluster(self, a:ClusterArgs):
-        # Set global config
-        commands.set_default_progress('tqdm')
         commands.set_default_model(a.model)
 
         # Use new command pattern
@@ -203,8 +193,10 @@ class CLI(BaseMLCLI):
             s = 'sub-' + '-'.join([str(i) for i in a.sub]) + '_'
         fig_path = f'{base}_{s}umap.png'
 
-        fig = cluster_proc.plot_umap()
-        if not a.nosave:
+        # Use the new command pattern with plot_umap utility function
+        umap_embs = cmd.get_umap_embeddings()
+        fig = plot_umap(umap_embs, cmd.total_clusters)
+        if a.save:
             fig.savefig(fig_path)
             print(f'wrote {fig_path}')
 
@@ -218,8 +210,8 @@ class CLI(BaseMLCLI):
         clusters: list[int] = Field([], s='-C')
         model: str = Field(DEFAULT_MODEL, choice=['gigapath', 'uni', 'none'])
         scaler: str = Field('minmax', choices=['std', 'minmax'])
+        save: bool = False
         noshow: bool = False
-        nosave: bool = False
 
     def run_cluster_scores(self, a:ClusterScoresArgs):
         with h5py.File(a.input_path, 'r') as f:
@@ -276,7 +268,7 @@ class CLI(BaseMLCLI):
             ax.set_title('Distribution of PCA Values by Cluster')
             ax.grid(axis='y', linestyle='--', alpha=0.7)
             plt.tight_layout()
-            if not a.nosave:
+            if a.save:
                 p = P(a.input_path)
                 fig_path = str(p.parent / f'{p.stem}_score-{a.name}_pca.png')
                 plt.savefig(fig_path)
@@ -290,7 +282,7 @@ class CLI(BaseMLCLI):
         model: str = Field(DEFAULT_MODEL, choices=['gigapath', 'uni', 'virchow2'])
         resolution: float = 1
         use_umap_embs: float = False
-        nosave: bool = False
+        save: bool = False
         noshow: bool = False
         overwrite: bool = Field(False, s='-O')
 
@@ -341,7 +333,7 @@ class CLI(BaseMLCLI):
         fig = plot_umap(
                 embeddings=embs,
                 clusters=clusters.reshape(s[0]*s[1]))
-        if not a.nosave:
+        if a.save:
             p = P(a.input_path)
             fig_path = str(p.parent / f'{p.stem}_latent_umap.png')
             plt.savefig(fig_path)
@@ -358,8 +350,6 @@ class CLI(BaseMLCLI):
         open: bool = False
 
     def run_preview(self, a):
-        commands.set_default_progress('tqdm')
-        
         output_path = a.output_path
         if not output_path:
             base, ext = os.path.splitext(a.input_path)
@@ -389,8 +379,6 @@ class CLI(BaseMLCLI):
         open: bool = False
 
     def run_preview_scores(self, a):
-        commands.set_default_progress('tqdm')
-        
         output_path = a.output_path
         if not output_path:
             base, ext = os.path.splitext(a.input_path)
@@ -421,12 +409,10 @@ class CLI(BaseMLCLI):
             base, ext = os.path.splitext(a.input_path)
             output_path = f'{base}_latent_pca.jpg'
 
-        proc = PreviewLatentPCAProcessor(
-                a.input_path,
-                model_name=a.model,
-                size=a.size)
-        img = proc.create_thumbnail(
-                progress='tqdm')
+        # Use new command pattern
+        commands.set_default_model(a.model)
+        cmd = commands.PreviewLatentPCACommand(size=a.size)
+        img = cmd(a.input_path)
         img.save(output_path)
         print(f'wrote {output_path}')
 
@@ -447,12 +433,10 @@ class CLI(BaseMLCLI):
             base, ext = os.path.splitext(a.input_path)
             output_path = f'{base}_latent_clusters.jpg'
 
-        proc = PreviewLatentClusterProcessor(
-                a.input_path,
-                model_name=a.model,
-                size=a.size)
-        img = proc.create_thumbnail(
-                progress='tqdm')
+        # Use new command pattern
+        commands.set_default_model(a.model)
+        cmd = commands.PreviewLatentClusterCommand(size=a.size)
+        img = cmd(a.input_path)
         img.save(output_path)
         print(f'wrote {output_path}')
 
@@ -468,8 +452,7 @@ class CLI(BaseMLCLI):
 
     def run_export_dzi(self, a: ExportDziArgs):
         """Export HDF5 patches to Deep Zoom Image (DZI) format for OpenSeadragon"""
-        commands.set_default_progress('tqdm')
-        
+
         # Get name from H5 filename
         name = P(a.input_h5).stem
 
@@ -480,13 +463,13 @@ class CLI(BaseMLCLI):
             jpeg_quality=a.jpeg_quality,
             fill_empty=a.fill_empty
         )
-        
+
         result = cmd(
             hdf5_path=a.input_h5,
             output_dir=str(output_dir),
             name=name
         )
-        
+
         print(f'Export completed: {result["dzi_path"]}')
 
 

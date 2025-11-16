@@ -57,9 +57,15 @@ def _progress(iterable, **kwargs):
 
 # Import and export all commands
 from .wsi import Wsi2HDF5Command
-from .tile_embedding import TileEmbeddingCommand
+from .patch_embedding import PatchEmbeddingCommand
 from .clustering import ClusteringCommand
-from .preview import BasePreviewCommand, PreviewClustersCommand, PreviewScoresCommand
+from .preview import (
+    BasePreviewCommand,
+    PreviewClustersCommand,
+    PreviewScoresCommand,
+    PreviewLatentPCACommand,
+    PreviewLatentClusterCommand,
+)
 from .dzi_export import DziExportCommand
 
 __all__ = [
@@ -76,10 +82,12 @@ __all__ = [
     '_progress',
     # Commands
     'Wsi2HDF5Command',
-    'TileEmbeddingCommand',
+    'PatchEmbeddingCommand',
     'ClusteringCommand',
     'BasePreviewCommand',
     'PreviewClustersCommand',
     'PreviewScoresCommand',
+    'PreviewLatentPCACommand',
+    'PreviewLatentClusterCommand',
     'DziExportCommand',
 ]

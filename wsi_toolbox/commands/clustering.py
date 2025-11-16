@@ -4,11 +4,19 @@ Clustering command for WSI features
 
 import h5py
 import numpy as np
-import umap
+from pydantic import BaseModel
 from sklearn.preprocessing import StandardScaler
 
 from ..utils.analysis import leiden_cluster
 from . import _config, _get
+
+
+class ClusteringResult(BaseModel):
+    """Result of clustering operation"""
+    cluster_count: int
+    feature_count: int
+    target_path: str
+    skipped: bool = False
 
 
 class ClusteringCommand:
@@ -60,9 +68,9 @@ class ClusteringCommand:
         self.masks = []
         self.features = None
         self.total_clusters = None
-        self._umap_embeddings = None
+        self.umap_embeddings = None
 
-    def __call__(self, hdf5_paths: str | list[str]) -> dict:
+    def __call__(self, hdf5_paths: str | list[str]) -> ClusteringResult:
         """
         Execute clustering
 
@@ -70,7 +78,7 @@ class ClusteringCommand:
             hdf5_paths: Single HDF5 path or list of paths
 
         Returns:
-            dict: Result metadata (cluster_count, etc.)
+            ClusteringResult: Result metadata (cluster_count, etc.)
         """
         # Normalize to list
         if isinstance(hdf5_paths, str):
@@ -96,12 +104,17 @@ class ClusteringCommand:
         if not self.sub_clustering and hasattr(self, 'has_clusters') and self.has_clusters and not self.overwrite:
             if _config.verbose:
                 print('Skip clustering (already exists)')
-            return {'skipped': True}
+            return ClusteringResult(
+                cluster_count=len(np.unique(self.total_clusters)),
+                feature_count=len(self.features),
+                target_path=clusters_path,
+                skipped=True
+            )
 
         # Perform clustering
         self.total_clusters = leiden_cluster(
             self.features,
-            umap_emb_func=self._get_umap_embeddings if self.use_umap else None,
+            umap_emb_func=self.get_umap_embeddings if self.use_umap else None,
             resolution=self.resolution,
             progress=_config.progress
         )
@@ -132,11 +145,11 @@ class ClusteringCommand:
 
         cluster_count = len(np.unique(self.total_clusters))
 
-        return {
-            'cluster_count': cluster_count,
-            'feature_count': len(self.features),
-            'target_path': target_path
-        }
+        return ClusteringResult(
+            cluster_count=cluster_count,
+            feature_count=len(self.features),
+            target_path=target_path
+        )
 
     def _load_features(self, clusters_path: str):
         """Load features from HDF5 files"""
@@ -190,11 +203,12 @@ class ClusteringCommand:
                 f'Cluster count mismatch: {len(clusterss)} vs {len(self.hdf5_paths)}'
             )
 
-    def _get_umap_embeddings(self):
+    def get_umap_embeddings(self):
+        import umap
         """Get UMAP embeddings (lazy evaluation)"""
-        if self._umap_embeddings is not None:
-            return self._umap_embeddings
+        if self.umap_embeddings is not None:
+            return self.umap_embeddings
 
         reducer = umap.UMAP(n_components=2)
-        self._umap_embeddings = reducer.fit_transform(self.features)
-        return self._umap_embeddings
+        self.umap_embeddings = reducer.fit_transform(self.features)
+        return self.umap_embeddings

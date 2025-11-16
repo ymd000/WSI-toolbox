@@ -1,5 +1,5 @@
 """
-Tile embedding extraction command
+Patch embedding extraction command
 """
 
 import gc
@@ -7,13 +7,23 @@ import gc
 import h5py
 import numpy as np
 import torch
+from pydantic import BaseModel
 
 from ..models import create_model
 from ..utils.helpers import safe_del
 from . import _config, _get, _progress
 
 
-class TileEmbeddingCommand:
+class PatchEmbeddingResult(BaseModel):
+    """Result of patch embedding extraction"""
+    feature_dim: int = 0
+    patch_count: int = 0
+    model: str = ''
+    with_latent: bool = False
+    skipped: bool = False
+
+
+class PatchEmbeddingCommand:
     """
     Extract embeddings from patches using foundation models
 
@@ -23,7 +33,7 @@ class TileEmbeddingCommand:
         commands.set_default_device('cuda')
 
         # Create and run command
-        cmd = TileEmbeddingCommand(batch_size=256, with_latent=False)
+        cmd = PatchEmbeddingCommand(batch_size=256, with_latent=False)
         result = cmd(hdf5_path='data.h5')
     """
 
@@ -34,7 +44,7 @@ class TileEmbeddingCommand:
                  model_name: str | None = None,
                  device: str | None = None):
         """
-        Initialize tile embedding extractor
+        Initialize patch embedding extractor
 
         Args:
             batch_size: Batch size for inference
@@ -60,7 +70,7 @@ class TileEmbeddingCommand:
         self.feature_name = f'{self.model_name}/features'
         self.latent_feature_name = f'{self.model_name}/latent_features'
 
-    def __call__(self, hdf5_path: str) -> dict:
+    def __call__(self, hdf5_path: str) -> PatchEmbeddingResult:
         """
         Execute embedding extraction
 
@@ -68,7 +78,7 @@ class TileEmbeddingCommand:
             hdf5_path: Path to HDF5 file
 
         Returns:
-            dict: Result metadata (feature_dim, patch_count, skipped, etc.)
+            PatchEmbeddingResult: Result metadata (feature_dim, patch_count, skipped, etc.)
         """
         # Load model
         model = create_model(self.model_name)
@@ -90,7 +100,7 @@ class TileEmbeddingCommand:
                         if (self.feature_name in f) and (self.latent_feature_name in f):
                             if _config.verbose:
                                 print('Already extracted. Skipped.')
-                            return {'skipped': True}
+                            return PatchEmbeddingResult(skipped=True)
                         if (self.feature_name in f) or (self.latent_feature_name in f):
                             raise RuntimeError(
                                 f'Either {self.feature_name} or {self.latent_feature_name} exists.'
@@ -99,7 +109,7 @@ class TileEmbeddingCommand:
                         if self.feature_name in f:
                             if _config.verbose:
                                 print('Already extracted. Skipped.')
-                            return {'skipped': True}
+                            return PatchEmbeddingResult(skipped=True)
 
                 # Delete if overwrite
                 if self.overwrite:
@@ -164,12 +174,12 @@ class TileEmbeddingCommand:
 
                 done = True
 
-                return {
-                    'feature_dim': model.num_features,
-                    'patch_count': patch_count,
-                    'model': self.model_name,
-                    'with_latent': self.with_latent
-                }
+                return PatchEmbeddingResult(
+                    feature_dim=model.num_features,
+                    patch_count=patch_count,
+                    model=self.model_name,
+                    with_latent=self.with_latent
+                )
 
         finally:
             if done and _config.verbose:
