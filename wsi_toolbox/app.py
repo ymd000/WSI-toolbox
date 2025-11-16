@@ -24,9 +24,11 @@ __package__ = 'wsi_toolbox'
 from .models import DEFAULT_MODEL, MODEL_LABELS, MODEL_NAMES_BY_LABEL
 from .utils.progress import tqdm_or_st
 from .utils.st import st_horizontal
-from .processor import WSIProcessor, TileProcessor, ClusterProcessor, PreviewClustersProcessor
+from .utils import plot_umap
+from . import commands
 
 
+commands.set_default_progress('streamlit')
 Image.MAX_IMAGE_PIXELS = 3_500_000_000
 
 # Global constants
@@ -429,8 +431,9 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
                     st.write(f'すでにHDF5ファイル（{os.path.basename(hdf5_path)}）が存在しているので分割処理をスキップしました。')
                 else:
                     with st.spinner('WSIを分割しHDF5ファイルを構成しています...', show_time=True):
-                        wp = WSIProcessor(wsi_path)
-                        wp.convert_to_hdf5(hdf5_tmp_path, patch_size=PATCH_SIZE, rotate=rotate, progress='streamlit')
+                        # Use new command pattern
+                        cmd = commands.Wsi2HDF5Command(patch_size=PATCH_SIZE, rotate=rotate)
+                        result = cmd(wsi_path, hdf5_tmp_path)
                     os.rename(hdf5_tmp_path, hdf5_path)
                     st.write('HDF5ファイルに変換完了。')
 
@@ -438,8 +441,11 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
                     st.write(f'すでに{model_label}特徴量を抽出済みなので処理をスキップしました。')
                 else:
                     with st.spinner(f'{model_label}特徴量を抽出中...', show_time=True):
-                        tp = TileProcessor(model_name=st.session_state.model, device='cuda')
-                        tp.evaluate_hdf5_file(hdf5_path, batch_size=BATCH_SIZE, overwrite=True, progress='streamlit')
+                        # Use new command pattern
+                        commands.set_default_model(st.session_state.model)
+                        commands.set_default_device('cuda')
+                        cmd = commands.PatchEmbeddingCommand(batch_size=BATCH_SIZE, overwrite=True)
+                        result = cmd(hdf5_path)
                     st.write(f'{model_label}特徴量の抽出完了。')
                 hdf5_paths.append(hdf5_path)
                 if i < len(selected_files)-1:
@@ -454,17 +460,26 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
                     umap_path = f'{base}_umap.png'
                     thumb_path = f'{base}_thumb.jpg'
                     with st.spinner(f'クラスタリング中...', show_time=True):
-                        cluster_proc = ClusterProcessor(
-                                [hdf5_path],
-                                model_name=st.session_state.model,
-                                cluster_name='')
-                        cluster_proc.anlyze_clusters(resolution=DEFAULT_CLUSTER_RESOLUTION, progress='streamlit')
-                        cluster_proc.plot_umap(fig_path=umap_path)
+                        # Use new command pattern
+                        commands.set_default_model(st.session_state.model)
+                        cmd = commands.ClusteringCommand(
+                            resolution=DEFAULT_CLUSTER_RESOLUTION,
+                            cluster_name='',
+                            use_umap=True
+                        )
+                        result = cmd([hdf5_path])
+
+                        # Plot UMAP
+                        umap_embs = cmd.get_umap_embeddings()
+                        fig = plot_umap(umap_embs, cmd.total_clusters)
+                        fig.savefig(umap_path, bbox_inches='tight', pad_inches=0.5)
                     st.write(f'クラスタリング結果を{os.path.basename(umap_path)}に出力しました。')
 
                     with st.spinner('オーバービュー生成中', show_time=True):
-                        thumb_proc = PreviewClustersProcessor(hdf5_path, model_name=st.session_state.model, size=THUMBNAIL_SIZE)
-                        img = thumb_proc.create_thumbnail(cluster_name='', progress='streamlit')
+                        # Use new command pattern
+                        commands.set_default_model(st.session_state.model)
+                        preview_cmd = commands.PreviewClustersCommand(size=THUMBNAIL_SIZE)
+                        img = preview_cmd(hdf5_path, cluster_name='')
                         img.save(thumb_path)
                     st.write(f'オーバービューを{os.path.basename(thumb_path)}に出力しました。')
                 if i < len(selected_files)-1:
