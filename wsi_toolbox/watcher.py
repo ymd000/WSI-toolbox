@@ -7,7 +7,7 @@ from typing import Dict, Set, Callable, Optional
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
-from .common import DEFAULT_MODEL, MODEL_LABELS
+from .models import DEFAULT_MODEL, MODEL_LABELS
 from .processor import WSIProcessor, TileProcessor, ClusterProcessor, PreviewClustersProcessor
 
 class Status:
@@ -187,10 +187,10 @@ class Watcher:
                     content = f.read()
                     if not content.strip():
                         continue
-                    
+
                     # First line contains model/rotation specs
                     options_line = content.split('\n')[0].strip()
-                    
+
                     # Original status check from the entire file
                     status = content.strip()
 
@@ -205,7 +205,7 @@ class Watcher:
             print()
             print(f"detected: {folder}")
             print(f"Request options: {options_line}")
-            
+
             task = Task(folder, options_line, on_complete=lambda f: self.running_tasks.pop(f, None))
             self.running_tasks[folder] = task
             task.run()  # 同期実行に変更

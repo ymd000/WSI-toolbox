@@ -34,7 +34,7 @@ from .processor import TileProcessor, ClusterProcessor, \
         PreviewClustersProcessor, PreviewScoresProcessor, PreviewLatentPCAProcessor, PreviewLatentClusterProcessor, \
         PyramidDziExportProcessor
 from . import commands
-from .common import DEFAULT_MODEL, create_model
+from .models import DEFAULT_MODEL, create_model
 from .utils import plot_umap
 from .utils.cli import BaseMLCLI, BaseMLArgs
 from .utils.analysis import leiden_cluster

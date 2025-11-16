@@ -14,7 +14,7 @@ import numpy as np
 import torch
 from pydantic import BaseModel, Field
 
-from .common import DEFAULT_MODEL, create_model
+from .models import DEFAULT_MODEL, create_model
 from .wsi_files import create_wsi_file
 from .utils.helpers import is_white_patch, safe_del
 from .utils.progress import tqdm_or_st

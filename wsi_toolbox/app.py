@@ -21,7 +21,7 @@ import streamlit as st
 sys.path.append(str(P(__file__).parent))
 __package__ = 'wsi_toolbox'
 
-from .common import DEFAULT_MODEL, MODEL_LABELS, MODEL_NAMES_BY_LABEL
+from .models import DEFAULT_MODEL, MODEL_LABELS, MODEL_NAMES_BY_LABEL
 from .utils.progress import tqdm_or_st
 from .utils.st import st_horizontal
 from .processor import WSIProcessor, TileProcessor, ClusterProcessor, PreviewClustersProcessor

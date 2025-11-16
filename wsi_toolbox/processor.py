@@ -21,7 +21,7 @@ import networkx as nx
 import leidenalg as la
 import igraph as ig
 
-from .common import create_model, DEFAULT_MODEL
+from .models import create_model, DEFAULT_MODEL
 from .utils import create_frame, get_platform_font, plot_umap
 from .utils.progress import tqdm_or_st
 from .utils.analysis import leiden_cluster
