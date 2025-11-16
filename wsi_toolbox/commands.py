@@ -7,6 +7,7 @@ No inheritance - simple standalone command classes.
 
 import os
 import gc
+from pathlib import Path
 
 import cv2
 import h5py
@@ -22,6 +23,10 @@ from .utils.analysis import leiden_cluster
 
 from sklearn.preprocessing import StandardScaler
 import umap
+from PIL import Image, ImageFont
+from matplotlib import pyplot as plt, colors as mcolors
+
+from .utils import create_frame, get_platform_font
 
 
 # === Global Configuration (Pydantic) ===
@@ -604,3 +609,388 @@ class ClusteringCommand:
         reducer = umap.UMAP(n_components=2)
         self._umap_embeddings = reducer.fit_transform(self.features)
         return self._umap_embeddings
+
+
+class BasePreviewCommand:
+    """
+    Base class for preview commands using Template Method Pattern
+    
+    Subclasses must implement:
+    - _prepare(f, **kwargs): Prepare data (frames, scores, etc.)
+    - _get_frame(index, data, f): Get frame for specific patch
+    """
+    
+    def __init__(self, size: int = 64, font_size: int = 16, 
+                 model_name: str | None = None):
+        """
+        Initialize preview command
+        
+        Args:
+            size: Thumbnail patch size
+            font_size: Font size for labels
+            model_name: Model name (None to use global default)
+        """
+        self.size = size
+        self.font_size = font_size
+        self.model_name = _get('model_name', model_name)
+    
+    def __call__(self, hdf5_path: str, **kwargs) -> Image.Image:
+        """
+        Template method - common workflow for all preview commands
+        
+        Args:
+            hdf5_path: Path to HDF5 file
+            **kwargs: Subclass-specific arguments
+            
+        Returns:
+            PIL.Image: Thumbnail image
+        """
+        S = self.size
+        
+        with h5py.File(hdf5_path, 'r') as f:
+            # Load metadata
+            cols, rows, patch_count, patch_size = self._load_metadata(f)
+            
+            # Subclass-specific preparation
+            data = self._prepare(f, **kwargs)
+            
+            # Create canvas
+            canvas = Image.new('RGB', (cols * S, rows * S), (0, 0, 0))
+            
+            # Render all patches (common loop)
+            tq = _progress(range(patch_count))
+            for i in tq:
+                coord = f['coordinates'][i]
+                patch_array = f['patches'][i]
+                
+                # Get subclass-specific frame
+                frame = self._get_frame(i, data, f)
+                
+                # Render patch
+                x, y = coord // patch_size * S
+                patch = Image.fromarray(patch_array).resize((S, S))
+                if frame:
+                    patch.paste(frame, (0, 0), frame)
+                canvas.paste(patch, (x, y, x + S, y + S))
+        
+        return canvas
+    
+    def _load_metadata(self, f: h5py.File):
+        """Load common metadata"""
+        cols = f['metadata/cols'][()]
+        rows = f['metadata/rows'][()]
+        patch_count = f['metadata/patch_count'][()]
+        patch_size = f['metadata/patch_size'][()]
+        return cols, rows, patch_count, patch_size
+    
+    def _prepare(self, f: h5py.File, **kwargs):
+        """
+        Prepare data for rendering (implemented by subclass)
+        
+        Args:
+            f: HDF5 file handle
+            **kwargs: Subclass-specific arguments
+            
+        Returns:
+            Any data structure needed for _get_frame()
+        """
+        raise NotImplementedError
+    
+    def _get_frame(self, index: int, data, f: h5py.File):
+        """
+        Get frame for specific patch (implemented by subclass)
+        
+        Args:
+            index: Patch index
+            data: Data prepared by _prepare()
+            f: HDF5 file handle
+            
+        Returns:
+            PIL.Image or None: Frame overlay
+        """
+        raise NotImplementedError
+
+
+class PreviewClustersCommand(BasePreviewCommand):
+    """
+    Generate thumbnail with cluster visualization
+
+    Usage:
+        cmd = PreviewClustersCommand(size=64)
+        image = cmd(hdf5_path='data.h5', cluster_name='test')
+    """
+    
+    def _prepare(self, f: h5py.File, cluster_name: str = ''):
+        """
+        Prepare cluster frames
+        
+        Args:
+            f: HDF5 file handle
+            cluster_name: Cluster name suffix
+            
+        Returns:
+            dict with 'clusters' and 'frames'
+        """
+        # Load clusters
+        cluster_path = f'{self.model_name}/clusters'
+        if cluster_name:
+            cluster_path += f'_{cluster_name}'
+        if cluster_path not in f:
+            raise RuntimeError(f'{cluster_path} does not exist in HDF5 file')
+        
+        clusters = f[cluster_path][:]
+        
+        # Prepare frames for each cluster
+        font = ImageFont.truetype(font=get_platform_font(), size=self.font_size)
+        cmap = plt.get_cmap('tab20')
+        frames = {}
+        
+        for cluster in np.unique(clusters).tolist() + [-1]:
+            color = mcolors.rgb2hex(cmap(cluster)[:3]) if cluster >= 0 else '#111'
+            frames[cluster] = create_frame(self.size, color, f'{cluster}', font)
+        
+        return {'clusters': clusters, 'frames': frames}
+    
+    def _get_frame(self, index: int, data, f: h5py.File):
+        """Get frame for cluster at index"""
+        cluster = data['clusters'][index]
+        return data['frames'][cluster] if cluster >= 0 else None
+
+
+class PreviewScoresCommand(BasePreviewCommand):
+    """
+    Generate thumbnail with score visualization
+
+    Usage:
+        cmd = PreviewScoresCommand(size=64)
+        image = cmd(hdf5_path='data.h5', score_name='pca')
+    """
+    
+    def _prepare(self, f: h5py.File, score_name: str):
+        """
+        Prepare score visualization data
+        
+        Args:
+            f: HDF5 file handle
+            score_name: Score dataset name
+            
+        Returns:
+            dict with 'scores', 'cmap', and 'font'
+        """
+        # Load scores
+        score_path = f'{self.model_name}/scores_{score_name}'
+        scores = f[score_path][()]
+        
+        # Prepare font and colormap
+        font = ImageFont.truetype(font=get_platform_font(), size=self.font_size)
+        cmap = plt.get_cmap('viridis')
+        
+        return {'scores': scores, 'cmap': cmap, 'font': font}
+    
+    def _get_frame(self, index: int, data, f: h5py.File):
+        """Get frame for score at index"""
+        score = data['scores'][index]
+        
+        if np.isnan(score):
+            return None
+        
+        color = mcolors.rgb2hex(data['cmap'](score)[:3])
+        return create_frame(self.size, color, f'{score:.3f}', data['font'])
+
+
+
+class DziExportCommand:
+    """
+    Export HDF5 patches to DZI (Deep Zoom Image) format
+    
+    Usage:
+        cmd = DziExportCommand(jpeg_quality=90, fill_empty=False)
+        cmd(hdf5_path='data.h5', output_dir='output', name='slide')
+    """
+    
+    def __init__(self,
+                 jpeg_quality: int = 90,
+                 fill_empty: bool = False):
+        """
+        Initialize DZI export command
+        
+        Args:
+            jpeg_quality: JPEG compression quality (0-100)
+            fill_empty: Fill missing tiles with black tiles
+        """
+        self.jpeg_quality = jpeg_quality
+        self.fill_empty = fill_empty
+    
+    def __call__(self, hdf5_path: str, output_dir: str, name: str) -> dict:
+        """
+        Export to DZI format with full pyramid
+        
+        Args:
+            hdf5_path: Path to HDF5 file
+            output_dir: Output directory
+            name: Base name for DZI files
+            
+        Returns:
+            dict: Export metadata
+        """
+        import math
+        import shutil
+        from pathlib import Path
+        
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Read HDF5
+        with h5py.File(hdf5_path, 'r') as f:
+            patches = f['patches'][:]
+            coords = f['coordinates'][:]
+            original_width = f['metadata/original_width'][()]
+            original_height = f['metadata/original_height'][()]
+            tile_size = f['metadata/patch_size'][()]
+        
+        # Validate tile_size (256 or 512 only)
+        if tile_size not in [256, 512]:
+            raise ValueError(f'Unsupported patch_size: {tile_size}. Only 256 or 512 are supported.')
+        
+        # Calculate grid and levels
+        cols = (original_width + tile_size - 1) // tile_size
+        rows = (original_height + tile_size - 1) // tile_size
+        max_dimension = max(original_width, original_height)
+        max_level = math.ceil(math.log2(max_dimension))
+        
+        if _config.verbose:
+            print(f'Original size: {original_width}x{original_height}')
+            print(f'Tile size: {tile_size}')
+            print(f'Grid: {cols}x{rows}')
+            print(f'Total patches in HDF5: {len(patches)}')
+            print(f'Max zoom level: {max_level} (Level 0 = 1x1, Level {max_level} = original)')
+        
+        coord_to_idx = {(int(x // tile_size), int(y // tile_size)): idx
+                        for idx, (x, y) in enumerate(coords)}
+        
+        # Setup directories
+        dzi_path = output_dir / f'{name}.dzi'
+        files_dir = output_dir / f'{name}_files'
+        files_dir.mkdir(exist_ok=True)
+        
+        # Create empty tile template for current tile_size
+        empty_tile_path = None
+        if self.fill_empty:
+            empty_tile_path = files_dir / '_empty.jpeg'
+            black_img = Image.fromarray(np.zeros((tile_size, tile_size, 3), dtype=np.uint8))
+            black_img.save(empty_tile_path, 'JPEG', quality=self.jpeg_quality)
+        
+        # Export max level (original patches from HDF5)
+        level_dir = files_dir / str(max_level)
+        level_dir.mkdir(exist_ok=True)
+        
+        tq = _progress(range(rows))
+        for row in tq:
+            tq.set_description(f'Exporting level {max_level}: row {row+1}/{rows}')
+            for col in range(cols):
+                tile_path = level_dir / f'{col}_{row}.jpeg'
+                if (col, row) in coord_to_idx:
+                    idx = coord_to_idx[(col, row)]
+                    patch = patches[idx]
+                    img = Image.fromarray(patch)
+                    img.save(tile_path, 'JPEG', quality=self.jpeg_quality)
+                elif self.fill_empty:
+                    shutil.copyfile(empty_tile_path, tile_path)
+        
+        # Generate lower levels by downsampling
+        for level in range(max_level - 1, -1, -1):
+            if _config.verbose:
+                print(f'Generating level {level}...')
+            self._generate_zoom_level_down(
+                files_dir, level, max_level, original_width, original_height,
+                tile_size, empty_tile_path
+            )
+        
+        # Generate DZI XML
+        self._generate_dzi_xml(dzi_path, original_width, original_height, tile_size)
+        
+        if _config.verbose:
+            print(f'DZI export complete: {dzi_path}')
+        
+        return {
+            'dzi_path': str(dzi_path),
+            'max_level': max_level,
+            'tile_size': tile_size,
+            'grid': f'{cols}x{rows}'
+        }
+    
+    def _generate_zoom_level_down(self,
+                                   files_dir: Path,
+                                   curr_level: int,
+                                   max_level: int,
+                                   original_width: int,
+                                   original_height: int,
+                                   tile_size: int,
+                                   empty_tile_path: Path | None):
+        """Generate a zoom level by downsampling from the higher level"""
+        import math
+        import shutil
+        from pathlib import Path
+        
+        src_level = curr_level + 1
+        src_dir = files_dir / str(src_level)
+        curr_dir = files_dir / str(curr_level)
+        curr_dir.mkdir(exist_ok=True)
+        
+        # Calculate dimensions at each level
+        curr_scale = 2 ** (max_level - curr_level)
+        curr_width = math.ceil(original_width / curr_scale)
+        curr_height = math.ceil(original_height / curr_scale)
+        curr_cols = math.ceil(curr_width / tile_size)
+        curr_rows = math.ceil(curr_height / tile_size)
+        
+        src_scale = 2 ** (max_level - src_level)
+        src_width = math.ceil(original_width / src_scale)
+        src_height = math.ceil(original_height / src_scale)
+        src_cols = math.ceil(src_width / tile_size)
+        src_rows = math.ceil(src_height / tile_size)
+        
+        tq = _progress(range(curr_rows))
+        for row in tq:
+            for col in range(curr_cols):
+                # Combine 4 tiles from source level
+                combined = np.zeros((tile_size * 2, tile_size * 2, 3), dtype=np.uint8)
+                has_any_tile = False
+                
+                for dy in range(2):
+                    for dx in range(2):
+                        src_col = col * 2 + dx
+                        src_row = row * 2 + dy
+                        
+                        if src_col < src_cols and src_row < src_rows:
+                            src_path = src_dir / f'{src_col}_{src_row}.jpeg'
+                            if src_path.exists():
+                                src_img = Image.open(src_path)
+                                src_array = np.array(src_img)
+                                h, w = src_array.shape[:2]
+                                combined[dy*tile_size:dy*tile_size+h,
+                                        dx*tile_size:dx*tile_size+w] = src_array
+                                has_any_tile = True
+                
+                tile_path = curr_dir / f'{col}_{row}.jpeg'
+                if has_any_tile:
+                    combined_img = Image.fromarray(combined)
+                    downsampled = combined_img.resize((tile_size, tile_size), Image.LANCZOS)
+                    downsampled.save(tile_path, 'JPEG', quality=self.jpeg_quality)
+                elif self.fill_empty and empty_tile_path:
+                    shutil.copyfile(empty_tile_path, tile_path)
+            
+            tq.set_description(f'Generating level {curr_level}: row {row+1}/{curr_rows}')
+    
+    def _generate_dzi_xml(self, dzi_path: Path, width: int, height: int, tile_size: int):
+        """Generate DZI XML file"""
+        dzi_content = f'''<?xml version="1.0" encoding="utf-8"?>
+<Image xmlns="http://schemas.microsoft.com/deepzoom/2008"
+       Format="jpeg"
+       Overlap="0"
+       TileSize="{tile_size}">
+    <Size Width="{width}" Height="{height}"/>
+</Image>
+'''
+        with open(dzi_path, 'w', encoding='utf-8') as f:
+            f.write(dzi_content)

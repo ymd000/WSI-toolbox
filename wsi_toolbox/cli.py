@@ -358,6 +358,8 @@ class CLI(BaseMLCLI):
         open: bool = False
 
     def run_preview(self, a):
+        commands.set_default_progress('tqdm')
+        
         output_path = a.output_path
         if not output_path:
             base, ext = os.path.splitext(a.input_path)
@@ -366,13 +368,11 @@ class CLI(BaseMLCLI):
             else:
                 output_path = f'{base}_thumb.jpg'
 
-        proc = PreviewClustersProcessor(
-                a.input_path,
-                model_name=a.model,
-                size=a.size)
-        img = proc.create_thumbnail(
-                cluster_name=a.cluster_name,
-                progress='tqdm')
+        cmd = commands.PreviewClustersCommand(
+            size=a.size,
+            model_name=a.model
+        )
+        img = cmd(a.input_path, cluster_name=a.cluster_name)
         img.save(output_path)
         print(f'wrote {output_path}')
 
@@ -389,18 +389,18 @@ class CLI(BaseMLCLI):
         open: bool = False
 
     def run_preview_scores(self, a):
+        commands.set_default_progress('tqdm')
+        
         output_path = a.output_path
         if not output_path:
             base, ext = os.path.splitext(a.input_path)
             output_path = f'{base}_score-{a.score_name}_thumb.jpg'
 
-        proc = PreviewScoresProcessor(
-                a.input_path,
-                model_name=a.model,
-                size=a.size)
-        img = proc.create_thumbnail(
-                score_name=a.score_name,
-                progress='tqdm')
+        cmd = commands.PreviewScoresCommand(
+            size=a.size,
+            model_name=a.model
+        )
+        img = cmd(a.input_path, score_name=a.score_name)
         img.save(output_path)
         print(f'wrote {output_path}')
 
@@ -468,23 +468,26 @@ class CLI(BaseMLCLI):
 
     def run_export_dzi(self, a: ExportDziArgs):
         """Export HDF5 patches to Deep Zoom Image (DZI) format for OpenSeadragon"""
+        commands.set_default_progress('tqdm')
+        
         # Get name from H5 filename
         name = P(a.input_h5).stem
 
         # Use specified output directory as-is
         output_dir = P(a.output_dir)
 
-        processor = PyramidDziExportProcessor()
-
-        processor.export_to_dzi(
-            h5_path=a.input_h5,
-            output_dir=str(output_dir),
-            name=name,
+        cmd = commands.DziExportCommand(
             jpeg_quality=a.jpeg_quality,
-            fill_empty=a.fill_empty,
-            progress='tqdm'
+            fill_empty=a.fill_empty
         )
-        print(f'Export completed: {output_dir}/{name}.dzi')
+        
+        result = cmd(
+            hdf5_path=a.input_h5,
+            output_dir=str(output_dir),
+            name=name
+        )
+        
+        print(f'Export completed: {result["dzi_path"]}')
 
 
 if __name__ == '__main__':
