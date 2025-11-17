@@ -2,6 +2,7 @@
 DZI export command for Deep Zoom Image format
 """
 
+import json
 import math
 import shutil
 from pathlib import Path
@@ -21,6 +22,7 @@ class DziExportResult(BaseModel):
     max_level: int
     tile_size: int
     grid: str
+    metadata_json_path: str | None = None
 
 
 class DziExportCommand:
@@ -65,6 +67,8 @@ class DziExportCommand:
             original_width = f["metadata/original_width"][()]
             original_height = f["metadata/original_height"][()]
             tile_size = f["metadata/patch_size"][()]
+            # Read MPP (microns per pixel) if available
+            mpp = f["metadata/mpp"][()] if "metadata/mpp" in f else None
 
         # Validate tile_size (256 or 512 only)
         if tile_size not in [256, 512]:
@@ -90,6 +94,9 @@ class DziExportCommand:
         files_dir = output_dir / f"{name}_files"
         files_dir.mkdir(exist_ok=True)
 
+        # Initialize missing tiles tracking (only when not filling empty)
+        missing_tiles = {} if not self.fill_empty else None
+
         # Create empty tile template for current tile_size
         empty_tile_path = None
         if self.fill_empty:
@@ -113,22 +120,56 @@ class DziExportCommand:
                     img.save(tile_path, "JPEG", quality=self.jpeg_quality)
                 elif self.fill_empty:
                     shutil.copyfile(empty_tile_path, tile_path)
+                else:
+                    # Track missing tile
+                    if missing_tiles is not None:
+                        if str(max_level) not in missing_tiles:
+                            missing_tiles[str(max_level)] = []
+                        missing_tiles[str(max_level)].append(f"{col}_{row}")
 
         # Generate lower levels by downsampling
         for level in range(max_level - 1, -1, -1):
             if get_config().verbose:
                 print(f"Generating level {level}...")
             self._generate_zoom_level_down(
-                files_dir, level, max_level, original_width, original_height, tile_size, empty_tile_path
+                files_dir, level, max_level, original_width, original_height, tile_size, empty_tile_path, missing_tiles
             )
 
         # Generate DZI XML
         self._generate_dzi_xml(dzi_path, original_width, original_height, tile_size)
 
+        # Generate metadata JSON if not filling empty tiles
+        metadata_json_path = None
+        if not self.fill_empty and missing_tiles is not None:
+            metadata_json_path = output_dir / f"{name}.json"
+            metadata = {
+                "width": int(original_width),
+                "height": int(original_height),
+                "tile_size": int(tile_size),
+                "format": "jpeg",
+                "missing_tiles": missing_tiles,
+            }
+            if mpp is not None:
+                metadata["mpp"] = float(mpp)
+
+            with open(metadata_json_path, "w", encoding="utf-8") as f:
+                json.dump(metadata, f, indent=2, ensure_ascii=False)
+
+            if get_config().verbose:
+                total_missing = sum(len(tiles) for tiles in missing_tiles.values())
+                print(f"Missing tiles metadata saved: {metadata_json_path}")
+                print(f"Total missing tiles: {total_missing}")
+
         if get_config().verbose:
             print(f"DZI export complete: {dzi_path}")
 
-        return DziExportResult(dzi_path=str(dzi_path), max_level=max_level, tile_size=tile_size, grid=f"{cols}x{rows}")
+        return DziExportResult(
+            dzi_path=str(dzi_path),
+            max_level=max_level,
+            tile_size=tile_size,
+            grid=f"{cols}x{rows}",
+            metadata_json_path=str(metadata_json_path) if metadata_json_path else None,
+        )
 
     def _generate_zoom_level_down(
         self,
@@ -139,6 +180,7 @@ class DziExportCommand:
         original_height: int,
         tile_size: int,
         empty_tile_path: Path | None,
+        missing_tiles: dict | None,
     ):
         """Generate a zoom level by downsampling from the higher level"""
         src_level = curr_level + 1
@@ -189,6 +231,12 @@ class DziExportCommand:
                     downsampled.save(tile_path, "JPEG", quality=self.jpeg_quality)
                 elif self.fill_empty and empty_tile_path:
                     shutil.copyfile(empty_tile_path, tile_path)
+                else:
+                    # Track missing tile
+                    if missing_tiles is not None:
+                        if str(curr_level) not in missing_tiles:
+                            missing_tiles[str(curr_level)] = []
+                        missing_tiles[str(curr_level)].append(f"{col}_{row}")
 
             tq.set_description(f"Generating level {curr_level}: row {row + 1}/{curr_rows}")
 
