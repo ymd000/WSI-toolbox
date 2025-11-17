@@ -1,5 +1,8 @@
 import time
-from typing import Iterable, TypeVar, Optional, Union, Any
+from typing import Iterable, TypeVar, Optional, Union, Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import tqdm.std
 
 T = TypeVar('T')
 
@@ -86,7 +89,7 @@ class StreamlitProgress:
 
 def tqdm_or_st(iterable: Optional[Iterable[T]] = None,
               backend: str = 'tqdm',
-              **kwargs) -> Union['tqdm', StreamlitProgress]:
+              **kwargs) -> Union['tqdm.std.tqdm', StreamlitProgress]:
     """
     指定されたバックエンドのプログレスバーを返す
 

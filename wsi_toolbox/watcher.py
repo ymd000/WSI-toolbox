@@ -44,7 +44,7 @@ class Task:
         self.wsi_files.sort()
 
         commands.set_default_progress('tqdm')
-        commands.set_default_model(self.model_name)
+        commands.set_default_model_preset(self.model_name)
 
     def write_banner(self):
         """処理開始時のバナーをログに書き込み"""

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 
 from ..wsi_files import create_wsi_file
 from ..utils.helpers import is_white_patch
-from . import _config, _progress
+from . import get_config, _progress
 
 
 class Wsi2HDF5Result(BaseModel):
@@ -97,7 +97,7 @@ class Wsi2HDF5Command:
         width = (W // T) * T
         row_count = H // T
 
-        if _config.verbose and _config.progress == 'tqdm':
+        if get_config().verbose and get_config().progress == 'tqdm':
             print(f'Original mpp: {original_mpp:.6f}')
             print(f'Image mpp: {mpp:.6f}')
             print(f'Target resolutions: {W} x {H}')
@@ -181,7 +181,7 @@ class Wsi2HDF5Command:
             f['patches'].resize((patch_count, S, S, 3))
             f.create_dataset('metadata/patch_count', data=patch_count)
 
-        if _config.verbose and _config.progress == 'tqdm':
+        if get_config().verbose and get_config().progress == 'tqdm':
             print(f'{patch_count} patches were selected.')
 
         return Wsi2HDF5Result(

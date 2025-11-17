@@ -50,7 +50,7 @@ print(f"Scale: {result.scale}")
 import wsi_toolbox as wt
 
 # グローバル設定
-wt.set_default_model('gigapath')  # 'gigapath', 'uni', 'virchow2'
+wt.set_default_model_preset('gigapath')  # プリセット: 'gigapath', 'uni', 'virchow2'
 wt.set_default_device('cuda')     # 'cuda' or 'cpu'
 wt.set_default_progress('tqdm')
 
@@ -76,7 +76,7 @@ import wsi_toolbox as wt
 import matplotlib.pyplot as plt
 
 # グローバル設定
-wt.set_default_model('gigapath')
+wt.set_default_model_preset('gigapath')
 wt.set_default_progress('tqdm')
 
 # クラスタリング
@@ -105,7 +105,7 @@ plt.show()
 ```python
 import wsi_toolbox as wt
 
-wt.set_default_model('gigapath')
+wt.set_default_model_preset('gigapath')
 
 # 複数ファイルを同時にクラスタリング
 cmd = wt.ClusteringCommand(
@@ -121,7 +121,7 @@ result = cmd(['file1.h5', 'file2.h5', 'file3.h5'])
 ```python
 import wsi_toolbox as wt
 
-wt.set_default_model('gigapath')
+wt.set_default_model_preset('gigapath')
 
 # クラスタ 0, 1, 2 のみをサブクラスタリング
 cmd = wt.ClusteringCommand(
@@ -139,7 +139,7 @@ result = cmd(['output.h5'])
 ```python
 import wsi_toolbox as wt
 
-wt.set_default_model('gigapath')
+wt.set_default_model_preset('gigapath')
 wt.set_default_progress('tqdm')
 
 # クラスタカラーオーバーレイ
@@ -153,7 +153,7 @@ img.save('preview_clusters.jpg')
 ```python
 import wsi_toolbox as wt
 
-wt.set_default_model('gigapath')
+wt.set_default_model_preset('gigapath')
 
 cmd = wt.PreviewLatentPCACommand(size=64)
 img = cmd('output.h5', alpha=0.5)
@@ -165,7 +165,7 @@ img.save('preview_latent_pca.jpg')
 ```python
 import wsi_toolbox as wt
 
-wt.set_default_model('gigapath')
+wt.set_default_model_preset('gigapath')
 
 cmd = wt.PreviewLatentClusterCommand(size=64)
 img = cmd('output.h5', alpha=0.5)
@@ -178,7 +178,7 @@ img.save('preview_latent_cluster.jpg')
 
 ```python
 # グローバル設定（すべてのコマンドに適用）
-wt.set_default_model('gigapath')
+wt.set_default_model_preset('gigapath')
 wt.set_default_device('cuda')
 wt.set_default_progress('tqdm')
 
@@ -307,7 +307,7 @@ import wsi_toolbox as wt
 import matplotlib.pyplot as plt
 
 # グローバル設定
-wt.set_default_model('gigapath')
+wt.set_default_model_preset('gigapath')
 wt.set_default_device('cuda')
 wt.set_default_progress('tqdm')
 

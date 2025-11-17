@@ -39,7 +39,7 @@ uv sync --extra gigapath
 import wsi_toolbox as wt
 
 # Basic workflow
-wt.set_default_model('uni')
+wt.set_default_model_preset('uni')
 cmd = wt.Wsi2HDF5Command(patch_size=256)
 result = cmd('input.ndpi', 'output.h5')
 ```
@@ -146,6 +146,29 @@ uv run task app
 # Run watcher
 uv run task watcher
 ```
+
+### Code Quality (Linting)
+
+This project uses [Ruff](https://docs.astral.sh/ruff/) for linting and code formatting.
+
+```bash
+# Install dev dependencies (includes ruff)
+uv sync --group dev
+
+# Check code quality
+uv run ruff check wsi_toolbox/
+
+# Auto-fix issues where possible
+uv run ruff check wsi_toolbox/ --fix
+
+# Format code
+uv run ruff format wsi_toolbox/
+
+# Check formatting without modifying files
+uv run ruff format --check wsi_toolbox/
+```
+
+**Note**: Linting runs automatically on every push/PR via GitHub Actions.
 
 ### Build and Deploy
 

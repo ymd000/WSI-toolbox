@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from ..models import create_model
 from ..utils.helpers import safe_del
-from . import _config, _get, _progress
+from . import get_config, _get, _progress
 
 
 class PatchEmbeddingResult(BaseModel):
@@ -29,7 +29,7 @@ class PatchEmbeddingCommand:
 
     Usage:
         # Set global config once
-        commands.set_default_model('gigapath')
+        commands.set_default_model_preset('gigapath')
         commands.set_default_device('cuda')
 
         # Create and run command
@@ -98,7 +98,7 @@ class PatchEmbeddingCommand:
                 if not self.overwrite:
                     if self.with_latent:
                         if (self.feature_name in f) and (self.latent_feature_name in f):
-                            if _config.verbose:
+                            if get_config().verbose:
                                 print('Already extracted. Skipped.')
                             return PatchEmbeddingResult(skipped=True)
                         if (self.feature_name in f) or (self.latent_feature_name in f):
@@ -107,7 +107,7 @@ class PatchEmbeddingCommand:
                             )
                     else:
                         if self.feature_name in f:
-                            if _config.verbose:
+                            if get_config().verbose:
                                 print('Already extracted. Skipped.')
                             return PatchEmbeddingResult(skipped=True)
 
@@ -169,7 +169,7 @@ class PatchEmbeddingCommand:
                     tq.set_description(f'Processing {i0}-{i1} (total={patch_count})')
                     tq.refresh()
 
-                if _config.verbose:
+                if get_config().verbose:
                     print(f'Embeddings dimension: {f[self.feature_name].shape}')
 
                 done = True
@@ -182,7 +182,7 @@ class PatchEmbeddingCommand:
                 )
 
         finally:
-            if done and _config.verbose:
+            if done and get_config().verbose:
                 print(f'Wrote {self.feature_name}')
             elif not done:
                 # Cleanup on error
@@ -190,7 +190,7 @@ class PatchEmbeddingCommand:
                     safe_del(f, self.feature_name)
                     if self.with_latent:
                         safe_del(f, self.latent_feature_name)
-                if _config.verbose:
+                if get_config().verbose:
                     print(f'ABORTED! Deleted {self.feature_name}')
 
             # Cleanup

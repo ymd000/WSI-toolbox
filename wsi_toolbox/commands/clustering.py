@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from sklearn.preprocessing import StandardScaler
 
 from ..utils.analysis import leiden_cluster
-from . import _config, _get
+from . import get_config, _get
 
 
 class ClusteringResult(BaseModel):
@@ -25,7 +25,7 @@ class ClusteringCommand:
 
     Usage:
         # Set global config once
-        commands.set_default_model('gigapath')
+        commands.set_default_model_preset('gigapath')
 
         # Create and run command
         cmd = ClusteringCommand(resolution=1.0)
@@ -102,7 +102,7 @@ class ClusteringCommand:
 
         # Check if already exists
         if not self.sub_clustering and hasattr(self, 'has_clusters') and self.has_clusters and not self.overwrite:
-            if _config.verbose:
+            if get_config().verbose:
                 print('Skip clustering (already exists)')
             return ClusteringResult(
                 cluster_count=len(np.unique(self.total_clusters)),
@@ -116,7 +116,7 @@ class ClusteringCommand:
             self.features,
             umap_emb_func=self.get_umap_embeddings if self.use_umap else None,
             resolution=self.resolution,
-            progress=_config.progress
+            progress=get_config().progress
         )
 
         # Write results
@@ -125,7 +125,7 @@ class ClusteringCommand:
             suffix = '_sub' + '-'.join(map(str, self.cluster_filter))
             target_path = target_path + suffix
 
-        if _config.verbose:
+        if get_config().verbose:
             print(f'Writing to {target_path}')
 
         cursor = 0

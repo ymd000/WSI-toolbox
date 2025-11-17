@@ -27,6 +27,7 @@ import torch
 from torchvision import transforms
 from torch.amp import autocast
 import timm
+import umap
 
 from . import commands, common
 from .models import create_model
@@ -171,7 +172,7 @@ class CLI(BaseMLCLI):
         overwrite: bool = Field(False, s='-O')
 
     def run_cluster(self, a:ClusterArgs):
-        commands.set_default_model(a.model)
+        commands.set_default_model_preset(a.model)
 
         # Use new command pattern
         cmd = commands.ClusteringCommand(
@@ -412,7 +413,7 @@ class CLI(BaseMLCLI):
             output_path = f'{base}_latent_pca.jpg'
 
         # Use new command pattern
-        commands.set_default_model(a.model)
+        commands.set_default_model_preset(a.model)
         cmd = commands.PreviewLatentPCACommand(size=a.size)
         img = cmd(a.input_path)
         img.save(output_path)
@@ -436,7 +437,7 @@ class CLI(BaseMLCLI):
             output_path = f'{base}_latent_clusters.jpg'
 
         # Use new command pattern
-        commands.set_default_model(a.model)
+        commands.set_default_model_preset(a.model)
         cmd = commands.PreviewLatentClusterCommand(size=a.size)
         img = cmd(a.input_path)
         img.save(output_path)

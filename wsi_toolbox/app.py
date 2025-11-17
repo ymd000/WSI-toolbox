@@ -449,7 +449,7 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
                 else:
                     with st.spinner(f'{model_label}特徴量を抽出中...', show_time=True):
                         # Use new command pattern
-                        commands.set_default_model(st.session_state.model)
+                        commands.set_default_model_preset(st.session_state.model)
                         cmd = commands.PatchEmbeddingCommand(batch_size=BATCH_SIZE, overwrite=True)
                         result = cmd(hdf5_path)
                     st.write(f'{model_label}特徴量の抽出完了。')
@@ -467,7 +467,7 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
                     thumb_path = f'{base}_thumb.jpg'
                     with st.spinner(f'クラスタリング中...', show_time=True):
                         # Use new command pattern
-                        commands.set_default_model(st.session_state.model)
+                        commands.set_default_model_preset(st.session_state.model)
                         cmd = commands.ClusteringCommand(
                             resolution=DEFAULT_CLUSTER_RESOLUTION,
                             cluster_name='',
@@ -483,7 +483,7 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
 
                     with st.spinner('オーバービュー生成中', show_time=True):
                         # Use new command pattern
-                        commands.set_default_model(st.session_state.model)
+                        commands.set_default_model_preset(st.session_state.model)
                         preview_cmd = commands.PreviewClustersCommand(size=THUMBNAIL_SIZE)
                         img = preview_cmd(hdf5_path, cluster_name='')
                         img.save(thumb_path)
@@ -614,14 +614,14 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
             if not f.detail or not f.detail.has_features:
                 st.write(f'{f.name}の特徴量が未抽出なので、抽出を行います。')
                 # Use new command pattern
-                commands.set_default_model(st.session_state.model)
+                commands.set_default_model_preset(st.session_state.model)
                 with st.spinner(f'{model_label}特徴量を抽出中...', show_time=True):
                     cmd = commands.PatchEmbeddingCommand(batch_size=BATCH_SIZE, overwrite=True)
                     result = cmd(f.path)
                 st.write(f'{model_label}特徴量の抽出完了。')
 
         # Use new command pattern
-        commands.set_default_model(st.session_state.model)
+        commands.set_default_model_preset(st.session_state.model)
         cluster_cmd = commands.ClusteringCommand(
             resolution=resolution,
             cluster_name=cluster_name,
@@ -658,7 +658,7 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
         with st.spinner('オーバービュー生成中...', show_time=True):
             for f in selected_files:
                 # Use new command pattern
-                commands.set_default_model(st.session_state.model)
+                commands.set_default_model_preset(st.session_state.model)
                 preview_cmd = commands.PreviewClustersCommand(size=THUMBNAIL_SIZE)
 
                 p = P(f.path)

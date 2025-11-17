@@ -106,8 +106,41 @@ packages = ["wsi_toolbox"]
 dev = [
     "ipython>=9.1.0",
     "jupyterlab>=4.1.6",
+    "ruff>=0.8.0",
 ]
 build = [
     "build>=1.0.0",
     "twine>=5.0.0",
 ]
+
+[tool.ruff]
+# Exclude common directories
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+    "wsi_toolbox/exp.py",  # Experimental file
+]
+
+# Same as Black.
+line-length = 120
+
+[tool.ruff.lint]
+# Enable specific rule categories
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+]
+
+# Ignore specific rules
+ignore = [
+    "E501",  # Line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["wsi_toolbox"]

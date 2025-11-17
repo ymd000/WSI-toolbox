@@ -7,7 +7,6 @@ Design pattern: __init__ for configuration, __call__ for execution
 # Import configuration from common module
 from ..common import (
     Config,
-    _config,
     get_config,
     set_default_progress,
     set_default_model,

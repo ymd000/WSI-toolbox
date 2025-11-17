@@ -10,7 +10,7 @@ import h5py
 import numpy as np
 from PIL import Image
 
-from . import _config, _progress
+from . import get_config, _progress
 
 
 class DziExportCommand:
@@ -68,7 +68,7 @@ class DziExportCommand:
         max_dimension = max(original_width, original_height)
         max_level = math.ceil(math.log2(max_dimension))
 
-        if _config.verbose:
+        if get_config().verbose:
             print(f'Original size: {original_width}x{original_height}')
             print(f'Tile size: {tile_size}')
             print(f'Grid: {cols}x{rows}')
@@ -109,7 +109,7 @@ class DziExportCommand:
 
         # Generate lower levels by downsampling
         for level in range(max_level - 1, -1, -1):
-            if _config.verbose:
+            if get_config().verbose:
                 print(f'Generating level {level}...')
             self._generate_zoom_level_down(
                 files_dir, level, max_level, original_width, original_height,
@@ -119,7 +119,7 @@ class DziExportCommand:
         # Generate DZI XML
         self._generate_dzi_xml(dzi_path, original_width, original_height, tile_size)
 
-        if _config.verbose:
+        if get_config().verbose:
             print(f'DZI export complete: {dzi_path}')
 
         return {
