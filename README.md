@@ -27,8 +27,8 @@ uv sync
 uv sync --extra build
 uv sync --extra build --extra compile
 
-# Then install gigapath
-uv sync --extra gigapath
+# Then install gigapath (uv-only dependency group, not available via PyPI)
+uv sync --group gigapath
 ```
 
 ## Quick Start
@@ -127,8 +127,8 @@ cd wsi-toolbox
 # Install all dependencies
 uv sync
 
-# Install with optional gigapath support
-uv sync --extra gigapath
+# Install with optional gigapath support (uv-only dependency group)
+uv sync --group gigapath
 
 # Install build tools
 uv sync --group build

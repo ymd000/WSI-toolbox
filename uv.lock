@@ -3703,7 +3703,7 @@ wheels = [
 
 [[package]]
 name = "wsi-toolbox"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "h5py" },
@@ -3748,12 +3748,6 @@ build = [
 compile = [
     { name = "flash-attn" },
 ]
-gigapath = [
-    { name = "einops" },
-    { name = "fairscale" },
-    { name = "flash-attn" },
-    { name = "gigapath" },
-]
 
 [package.dev-dependencies]
 build = [
@@ -3765,14 +3759,16 @@ dev = [
     { name = "jupyterlab" },
     { name = "ruff" },
 ]
+gigapath = [
+    { name = "einops" },
+    { name = "fairscale" },
+    { name = "flash-attn" },
+    { name = "gigapath" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "einops", marker = "extra == 'gigapath'", specifier = ">=0.8.1" },
-    { name = "fairscale", marker = "extra == 'gigapath'", specifier = ">=0.4.13" },
     { name = "flash-attn", marker = "extra == 'compile'" },
-    { name = "flash-attn", marker = "extra == 'gigapath'", specifier = ">=2.7.4" },
-    { name = "gigapath", marker = "extra == 'gigapath'", git = "https://github.com/prov-gigapath/prov-gigapath.git?rev=5d77be0" },
     { name = "h5py", specifier = ">=3.13.0" },
     { name = "hdbscan", specifier = ">=0.8.40" },
     { name = "imagecodecs", specifier = ">=2024.12.30" },
@@ -3808,7 +3804,7 @@ requires-dist = [
     { name = "wheel", marker = "extra == 'build'" },
     { name = "zarr", specifier = ">=3" },
 ]
-provides-extras = ["build", "compile", "gigapath"]
+provides-extras = ["build", "compile"]
 
 [package.metadata.requires-dev]
 build = [
@@ -3819,6 +3815,12 @@ dev = [
     { name = "ipython", specifier = ">=9.1.0" },
     { name = "jupyterlab", specifier = ">=4.1.6" },
     { name = "ruff", specifier = ">=0.8.0" },
+]
+gigapath = [
+    { name = "einops", specifier = ">=0.8.1" },
+    { name = "fairscale", specifier = ">=0.4.13" },
+    { name = "flash-attn", specifier = ">=2.7.4" },
+    { name = "gigapath", git = "https://github.com/prov-gigapath/prov-gigapath.git?rev=5d77be0" },
 ]
 
 [[package]]

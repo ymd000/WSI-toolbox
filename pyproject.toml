@@ -69,12 +69,13 @@ url = "https://download.pytorch.org/whl/cu121"
 build = ["torch", "packaging", "wheel", "setuptools"]
 compile = ["flash-attn"]
 # Slide-level encoding (CLI only)
-gigapath = [
-    "gigapath @ git+https://github.com/prov-gigapath/prov-gigapath.git@5d77be0",
-    "flash-attn>=2.7.4",
-    "einops>=0.8.1",
-    "fairscale>=0.4.13",
-]
+# Note: gigapath moved to dependency-groups because PyPI doesn't allow git dependencies
+# gigapath = [
+#     "gigapath @ git+https://github.com/prov-gigapath/prov-gigapath.git@5d77be0",
+#     "flash-attn>=2.7.4",
+#     "einops>=0.8.1",
+#     "fairscale>=0.4.13",
+# ]
 
 [tool.uv]
 no-build-isolation-package = ["flash-attn"]
@@ -111,6 +112,13 @@ dev = [
 build = [
     "build>=1.0.0",
     "twine>=5.0.0",
+]
+# Slide-level encoding (CLI only) - uv-only feature, not uploaded to PyPI
+gigapath = [
+    "gigapath @ git+https://github.com/prov-gigapath/prov-gigapath.git@5d77be0",
+    "flash-attn>=2.7.4",
+    "einops>=0.8.1",
+    "fairscale>=0.4.13",
 ]
 
 [tool.ruff]
