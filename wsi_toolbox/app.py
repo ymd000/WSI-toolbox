@@ -22,7 +22,7 @@ import streamlit as st
 sys.path.append(str(P(__file__).parent))
 __package__ = 'wsi_toolbox'
 
-from .models import MODEL_LABELS, MODEL_NAMES_BY_LABEL
+from .models import MODEL_LABELS, _MODEL_NAMES_BY_LABEL
 from .utils.progress import tqdm_or_st
 from .utils.st import st_horizontal
 from .utils import plot_umap
@@ -174,7 +174,7 @@ def render_navigation(current_dir_abs, default_root_abs):
             index=list(MODEL_LABELS.values()).index(model_label),
             disabled=st.session_state.locked
         )
-        new_model = MODEL_NAMES_BY_LABEL[new_model_label]
+        new_model = _MODEL_NAMES_BY_LABEL[new_model_label]
 
         # モデルが変更された場合、即座にリロード
         if new_model != st.session_state.model:

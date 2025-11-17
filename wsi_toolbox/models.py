@@ -9,7 +9,7 @@ MODEL_LABELS = {
     'gigapath':  'Prov-Gigapath',
     'virchow2':  'Virchow2',
 }
-MODEL_NAMES_BY_LABEL = {v: k for k, v in MODEL_LABELS.items()}
+_MODEL_NAMES_BY_LABEL = {v: k for k, v in MODEL_LABELS.items()}  # Private
 MODEL_NAMES = list(MODEL_LABELS.keys())
 
 

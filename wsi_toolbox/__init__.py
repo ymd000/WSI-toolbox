@@ -11,11 +11,15 @@ Basic Usage:
     >>> cmd = wt.Wsi2HDF5Command(patch_size=256)
     >>> result = cmd('input.ndpi', 'output.h5')
     >>>
-    >>> # Extract features
-    >>> wt.set_default_model('gigapath')
+    >>> # Extract features with preset model
+    >>> wt.set_default_model_preset('gigapath')
     >>> wt.set_default_device('cuda')
     >>> emb_cmd = wt.PatchEmbeddingCommand(batch_size=256)
     >>> emb_result = emb_cmd('output.h5')
+    >>>
+    >>> # Or use custom model
+    >>> custom_model = wt.create_model('uni')
+    >>> wt.set_default_model(custom_model, name='my_uni', label='My UNI')
     >>>
     >>> # Clustering
     >>> cluster_cmd = wt.ClusteringCommand(resolution=1.0, use_umap=True)
@@ -30,26 +34,25 @@ Basic Usage:
 # Version info
 __version__ = '0.1.0'
 
-# Commands
-from .commands import (
-    # Configuration
+# Configuration
+from .common import (
+    get_config,
     set_default_progress,
     set_default_model,
+    set_default_model_preset,
     set_default_device,
     set_verbose,
+)
 
-    # Main commands
+# Commands
+from .commands import (
     Wsi2HDF5Command,
     PatchEmbeddingCommand,
     ClusteringCommand,
-
-    # Preview commands
     PreviewClustersCommand,
     PreviewScoresCommand,
     PreviewLatentPCACommand,
     PreviewLatentClusterCommand,
-
-    # Export commands
     DziExportCommand,
 )
 
@@ -82,8 +85,10 @@ __all__ = [
     '__version__',
 
     # Configuration functions
+    'get_config',
     'set_default_progress',
     'set_default_model',
+    'set_default_model_preset',
     'set_default_device',
     'set_verbose',
 

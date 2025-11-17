@@ -28,7 +28,7 @@ from torchvision import transforms
 from torch.amp import autocast
 import timm
 
-from . import commands
+from . import commands, common
 from .models import create_model
 from .utils import plot_umap
 from .utils.cli import BaseMLCLI, BaseMLArgs
@@ -41,8 +41,8 @@ warnings.filterwarnings('ignore', category=FutureWarning, message="You are using
 
 DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'uni')
 
-commands.set_default_progress('tqdm')
-commands.set_default_model(DEFAULT_MODEL)
+common.set_default_progress('tqdm')
+common.set_default_model_preset(DEFAULT_MODEL)
 
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
