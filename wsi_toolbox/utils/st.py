@@ -46,6 +46,7 @@ HORIZONTAL_STYLE = """
 </style>
 """
 
+
 @contextmanager
 def st_horizontal():
     st.markdown(HORIZONTAL_STYLE, unsafe_allow_html=True)

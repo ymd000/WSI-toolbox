@@ -4,21 +4,26 @@ from typing import TYPE_CHECKING, Iterable, Optional, TypeVar, Union
 if TYPE_CHECKING:
     import tqdm.std
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 class StreamlitProgress:
     """tqdmと同じインターフェースを持つStreamlitのプログレスバー"""
 
-    def __init__(self, iterable: Optional[Iterable[T]] = None, total: Optional[int] = None,
-                 desc: str = "", **kwargs):
+    def __init__(self, iterable: Optional[Iterable[T]] = None, total: Optional[int] = None, desc: str = "", **kwargs):
         self.iterable = iterable
-        self.total = total if total is not None else (len(iterable) if iterable is not None and hasattr(iterable, "__len__") else None)
+        self.total = (
+            total
+            if total is not None
+            else (len(iterable) if iterable is not None and hasattr(iterable, "__len__") else None)
+        )
         self.desc = desc
         self.n = 0
         self.kwargs = kwargs
 
         try:
             import streamlit as st
+
             # 説明テキスト用のコンテナ
             self.text_container = st.empty()
             if desc:
@@ -41,8 +46,9 @@ class StreamlitProgress:
         if desc is not None:
             self.desc = desc
             # self.text_container.text(desc)
-            self.text_container.markdown('<p style="font-size:14px; color:gray;">' + desc +'</p>', unsafe_allow_html=True)
-
+            self.text_container.markdown(
+                '<p style="font-size:14px; color:gray;">' + desc + "</p>", unsafe_allow_html=True
+            )
 
     def set_postfix(self, ordered_dict=None, **kwargs) -> None:
         """後置テキストを設定する"""
@@ -55,7 +61,7 @@ class StreamlitProgress:
 
         if postfix_dict:
             # 辞書を文字列に変換して表示
-            postfix_str = ', '.join(f'{k}={v}' for k, v in postfix_dict.items())
+            postfix_str = ", ".join(f"{k}={v}" for k, v in postfix_dict.items())
             self.postfix_container.text(f"状態: {postfix_str}")
 
     def close(self) -> None:
@@ -65,7 +71,7 @@ class StreamlitProgress:
         self.text_container.empty()
 
     def refresh(self):
-        """ 不要なので何もしない """
+        """不要なので何もしない"""
         pass
 
     def __iter__(self):
@@ -87,9 +93,10 @@ class StreamlitProgress:
         """コンテキスト終了時に呼ばれる"""
         self.close()
 
-def tqdm_or_st(iterable: Optional[Iterable[T]] = None,
-              backend: str = 'tqdm',
-              **kwargs) -> Union['tqdm.std.tqdm', StreamlitProgress]:
+
+def tqdm_or_st(
+    iterable: Optional[Iterable[T]] = None, backend: str = "tqdm", **kwargs
+) -> Union["tqdm.std.tqdm", StreamlitProgress]:
     """
     指定されたバックエンドのプログレスバーを返す
 
@@ -111,11 +118,12 @@ def tqdm_or_st(iterable: Optional[Iterable[T]] = None,
     #     except (ImportError, AttributeError):
     #         backend = "tqdm"
 
-    assert backend in ['tqdm', 'streamlit']
+    assert backend in ["tqdm", "streamlit"]
 
     if backend == "tqdm":
         try:
             from tqdm import tqdm
+
             return tqdm(iterable, **kwargs)
         except ImportError:
             print("tqdmが見つからないため、Streamlitバックエンドを試行します...")
@@ -130,22 +138,40 @@ def tqdm_or_st(iterable: Optional[Iterable[T]] = None,
             # フォールバック: 何もしないダミープログレスバー
             try:
                 from tqdm import tqdm
+
                 return tqdm(iterable, disable=True, **kwargs)
             except ImportError:
                 # tqdmもないので、単なるイテレータを返す
                 class DummyTqdm:
                     def __init__(self, iterable=None, **kwargs):
                         self.iterable = iterable
-                    def update(self, n=1): pass
-                    def close(self): pass
-                    def set_description(self, desc=None, refresh=True): pass
-                    def set_postfix(self, ordered_dict=None, **kwargs): pass
+
+                    def update(self, n=1):
+                        pass
+
+                    def close(self):
+                        pass
+
+                    def set_description(self, desc=None, refresh=True):
+                        pass
+
+                    def set_postfix(self, ordered_dict=None, **kwargs):
+                        pass
+
                     def __iter__(self):
-                        if self.iterable is None: raise ValueError("イテレータがありません")
-                        for x in self.iterable: yield x
-                    def __enter__(self): return self
-                    def __exit__(self, *args, **kwargs): pass
+                        if self.iterable is None:
+                            raise ValueError("イテレータがありません")
+                        for x in self.iterable:
+                            yield x
+
+                    def __enter__(self):
+                        return self
+
+                    def __exit__(self, *args, **kwargs):
+                        pass
+
                 return DummyTqdm(iterable, **kwargs)
+
 
 # 基本的な使用例
 def basic_example():
@@ -156,6 +182,7 @@ def basic_example():
     for item in tqdm_or_st(items, desc="基本的な例", backend="tqdm"):
         time.sleep(0.1)
         print(f"処理中: {item}")
+
 
 # Streamlitの使用例
 def streamlit_example():
@@ -174,6 +201,7 @@ def streamlit_example():
 
     st.write("結果:", results)
 
+
 # コンテキストマネージャとしての使用例
 def context_manager_example():
     """コンテキストマネージャとしての使用例"""
@@ -186,13 +214,14 @@ def context_manager_example():
 
             # 説明を更新
             if i == 2:
-                pbar.set_description(f"ステップ {i+1}/{total_steps}")
+                pbar.set_description(f"ステップ {i + 1}/{total_steps}")
 
             # 追加情報を表示
-            pbar.set_postfix(progress=f"{(i+1)/total_steps:.0%}")
+            pbar.set_postfix(progress=f"{(i + 1) / total_steps:.0%}")
 
             # 進捗を更新
             pbar.update(1)
+
 
 # テスト用のメイン関数
 def main():
@@ -204,6 +233,7 @@ def main():
 
     print("\nStreamlitの例はStreamlitアプリ内で実行してください")
     # streamlit_example()  # Streamlitアプリ内でのみ実行可能
+
 
 if __name__ == "__main__":
     main()

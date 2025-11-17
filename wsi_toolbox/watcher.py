@@ -9,7 +9,8 @@ from rich.console import Console
 from . import commands
 from .utils import plot_umap
 
-DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'uni')
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "uni")
+
 
 class Status:
     PROCESSING = "PROCESSING"
@@ -21,6 +22,7 @@ class Status:
         """状態が処理中系かどうかを判定"""
         return status.startswith((cls.PROCESSING, cls.DONE, cls.ERROR))
 
+
 class Task:
     REQUEST_FILE = "_ROBIEMON.txt"
     LOG_FILE = "_ROBIEMON_LOG.txt"
@@ -29,12 +31,12 @@ class Task:
     def parse_request_line(line: str) -> tuple[str, bool]:
         """Parse the request line for model and rotation specifications.
         Returns (model_name, should_rotate)"""
-        parts = [p.strip() for p in line.split(',')]
+        parts = [p.strip() for p in line.split(",")]
         model_name = parts[0] if parts and parts[0] else DEFAULT_MODEL
-        should_rotate = len(parts) > 1 and parts[1].lower() == 'rotate'
+        should_rotate = len(parts) > 1 and parts[1].lower() == "rotate"
         return model_name, should_rotate
 
-    def __init__(self, folder:Path, options_line:str, on_complete:Optional[Callable[[Path], None]] = None):
+    def __init__(self, folder: Path, options_line: str, on_complete: Optional[Callable[[Path], None]] = None):
         self.folder = folder
         self.options_line = options_line
         self.model_name, self.should_rotate = self.parse_request_line(options_line)
@@ -42,12 +44,12 @@ class Task:
         self.wsi_files = list(folder.glob("**/*.ndpi")) + list(folder.glob("**/*.svs"))
         self.wsi_files.sort()
 
-        commands.set_default_progress('tqdm')
+        commands.set_default_progress("tqdm")
         commands.set_default_model_preset(self.model_name)
 
     def write_banner(self):
         """処理開始時のバナーをログに書き込み"""
-        self.append_log("="*50)
+        self.append_log("=" * 50)
         self.append_log(f"Processing folder: {self.folder}")
         self.append_log(f"Request options: {self.options_line}")
         self.append_log("Parsed options:")
@@ -57,7 +59,7 @@ class Task:
         for i, wsi_file in enumerate(self.wsi_files, 1):
             size_mb = wsi_file.stat().st_size / (1024 * 1024)
             self.append_log(f"  {i}. {wsi_file.name} ({size_mb:.1f} MB)")
-        self.append_log("="*50)
+        self.append_log("=" * 50)
 
     def run(self):
         try:
@@ -71,37 +73,34 @@ class Task:
             # WSIファイルごとの処理
             for i, wsi_file in enumerate(self.wsi_files):
                 try:
-                    self.append_log(f"Processing [{i+1}/{len(self.wsi_files )}]: {wsi_file.name}")
+                    self.append_log(f"Processing [{i + 1}/{len(self.wsi_files)}]: {wsi_file.name}")
 
-                    hdf5_tmp_path = wsi_file.with_suffix('.h5.tmp')
+                    hdf5_tmp_path = wsi_file.with_suffix(".h5.tmp")
                     hdf5_file = wsi_file.with_suffix(".h5")
 
                     # HDF5変換（既存の場合はスキップ）
                     if not hdf5_file.exists():
                         self.append_log("Converting to HDF5...")
                         # Use new command pattern
-                        commands.set_default_progress('tqdm')
+                        commands.set_default_progress("tqdm")
                         cmd = commands.Wsi2HDF5Command(rotate=self.should_rotate)
-                        result = cmd(str(wsi_file), str(hdf5_tmp_path))
+                        _ = cmd(str(wsi_file), str(hdf5_tmp_path))
                         os.rename(hdf5_tmp_path, hdf5_file)
                         self.append_log("HDF5 conversion completed.")
 
                     # 特徴量抽出（既存の場合はスキップ）
                     self.append_log("Extracting features...")
                     # Use new command pattern
-                    commands.set_default_device('cuda')
+                    commands.set_default_device("cuda")
                     emb_cmd = commands.PatchEmbeddingCommand()
-                    emb_result = emb_cmd(str(hdf5_file))
+                    _ = emb_cmd(str(hdf5_file))
                     self.append_log("Feature extraction completed.")
 
                     # クラスタリングとUMAP生成
                     self.append_log("Starting clustering ...")
                     # Use new command pattern
-                    cluster_cmd = commands.ClusteringCommand(
-                        resolution=1.0,
-                        use_umap=True
-                    )
-                    cluster_result = cluster_cmd([hdf5_file])
+                    cluster_cmd = commands.ClusteringCommand(resolution=1.0, use_umap=True)
+                    _ = cluster_cmd([hdf5_file])
                     self.append_log("Clustering completed.")
 
                     base = str(wsi_file.with_suffix(""))
@@ -112,7 +111,7 @@ class Task:
                     if not umap_path.exists():
                         umap_embs = cluster_cmd.get_umap_embeddings()
                         fig = plot_umap(umap_embs, cluster_cmd.total_clusters)
-                        fig.savefig(umap_path, bbox_inches='tight', pad_inches=0.5)
+                        fig.savefig(umap_path, bbox_inches="tight", pad_inches=0.5)
                         self.append_log(f"UMAP plot completed. Saved to {os.path.basename(umap_path)}")
                     else:
                         self.append_log("UMAP plot already exists. Skipped.")
@@ -123,13 +122,13 @@ class Task:
                     if not thumb_path.exists():
                         # Use new command pattern
                         preview_cmd = commands.PreviewClustersCommand(size=64)
-                        img = preview_cmd(str(hdf5_file), cluster_name='')
+                        img = preview_cmd(str(hdf5_file), cluster_name="")
                         img.save(thumb_path)
                         self.append_log(f"Thumbnail generation completed. Saved to {thumb_path.name}")
                     else:
                         self.append_log("Thumbnail already exists. Skipped.")
 
-                    self.append_log("="*30)
+                    self.append_log("=" * 30)
 
                 except Exception as e:
                     self.append_log(f"Error processing {wsi_file}: {str(e)}")
@@ -156,6 +155,7 @@ class Task:
         with open(self.folder / self.LOG_FILE, "a") as f:
             f.write(message + "\n")
             print(message)
+
 
 class Watcher:
     def __init__(self, base_dir: str):
@@ -205,12 +205,13 @@ class Watcher:
                         continue
 
                     # First line contains model/rotation specs
-                    options_line = content.split('\n')[0].strip()
+                    options_line = content.split("\n")[0].strip()
 
                     # Original status check from the entire file
                     status = content.strip()
 
-            except:
+            except Exception as e:
+                print(f"Error reading {request_file}: {e}")
                 continue
 
             if Status.is_processing_state(status):
@@ -226,22 +227,16 @@ class Watcher:
             self.running_tasks[folder] = task
             task.run()  # 同期実行に変更
 
-BASE_DIR = os.getenv('BASE_DIR', 'data')
+
+BASE_DIR = os.getenv("BASE_DIR", "data")
+
 
 def main():
     parser = argparse.ArgumentParser(description="ROBIEMON WSI Processor Watcher")
     parser.add_argument(
-        "--base-dir",
-        type=str,
-        default=BASE_DIR,
-        help="Base directory to watch for WSI processing requests"
+        "--base-dir", type=str, default=BASE_DIR, help="Base directory to watch for WSI processing requests"
     )
-    parser.add_argument(
-        "--interval",
-        type=int,
-        default=60,
-        help="Polling interval in seconds (default: 60)"
-    )
+    parser.add_argument("--interval", type=int, default=60, help="Polling interval in seconds (default: 60)")
 
     args = parser.parse_args()
 
@@ -255,6 +250,7 @@ def main():
 
     watcher = Watcher(args.base_dir)
     watcher.run(interval=args.interval)  # asyncio.runを削除
+
 
 if __name__ == "__main__":
     main()

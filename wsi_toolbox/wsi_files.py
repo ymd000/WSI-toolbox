@@ -49,7 +49,7 @@ class TiffFile(WSIFile):
         self.tif = tifffile.TiffFile(path)
 
         store = self.tif.pages[0].aszarr()
-        self.zarr_data = zarr.open(store, mode='r')  # 読み込み専用で開く
+        self.zarr_data = zarr.open(store, mode="r")  # 読み込み専用で開く
 
     def get_original_size(self):
         s = self.tif.pages[0].shape
@@ -57,8 +57,8 @@ class TiffFile(WSIFile):
 
     def get_mpp(self):
         tags = self.tif.pages[0].tags
-        resolution_unit = tags.get('ResolutionUnit', None)
-        x_resolution = tags.get('XResolution', None)
+        resolution_unit = tags.get("ResolutionUnit", None)
+        x_resolution = tags.get("XResolution", None)
 
         assert resolution_unit
         assert x_resolution
@@ -98,10 +98,10 @@ class TiffFile(WSIFile):
         height = min(height, full_height - y)
 
         if page.is_tiled:
-            region = self.zarr_data[y:y+height, x:x+width]
+            region = self.zarr_data[y : y + height, x : x + width]
         else:
             full_image = page.asarray()
-            region = full_image[y:y+height, x:x+width]
+            region = full_image[y : y + height, x : x + width]
 
         # カラーモデルの処理
         if region.ndim == 2:  # グレースケール
@@ -119,7 +119,7 @@ class OpenSlideFile(WSIFile):
         self.prop = dict(self.wsi.properties)
 
     def get_mpp(self):
-        return float(self.prop['openslide.mpp-x'])
+        return float(self.prop["openslide.mpp-x"])
 
     def get_original_size(self):
         dim = self.wsi.level_dimensions[0]
@@ -128,8 +128,8 @@ class OpenSlideFile(WSIFile):
     def read_region(self, xywh):
         # self.wsi.read_region((0, row*T), target_level, (width, T))
         # self.wsi.read_region((x, y), target_level, (w, h))
-        img = self.wsi.read_region((xywh[0], xywh[1]), 0, (xywh[2], xywh[3])).convert('RGB')
-        img = np.array(img.convert('RGB'))
+        img = self.wsi.read_region((xywh[0], xywh[1]), 0, (xywh[2], xywh[3])).convert("RGB")
+        img = np.array(img.convert("RGB"))
         return img
 
 
@@ -140,7 +140,7 @@ class StandardImage(WSIFile):
         self.image = cv2.imread(path)
         self.image = cv2.cvtColor(self.image, cv2.COLOR_BGR2RGB)  # OpenCVはBGR形式で読み込むのでRGBに変換
         self.mpp = mpp
-        assert self.mpp is not None, 'Specify mpp when using StandardImage'
+        assert self.mpp is not None, "Specify mpp when using StandardImage"
 
     def get_mpp(self):
         return self.mpp
@@ -150,10 +150,10 @@ class StandardImage(WSIFile):
 
     def read_region(self, xywh):
         x, y, w, h = xywh
-        return self.image[y:y+h, x:x+w]
+        return self.image[y : y + h, x : x + w]
 
 
-def create_wsi_file(image_path: str, engine: str = 'auto', **kwargs) -> WSIFile:
+def create_wsi_file(image_path: str, engine: str = "auto", **kwargs) -> WSIFile:
     """
     Factory function to create appropriate WSIFile instance
 
@@ -165,24 +165,24 @@ def create_wsi_file(image_path: str, engine: str = 'auto', **kwargs) -> WSIFile:
     Returns:
         WSIFile: Appropriate WSIFile subclass instance
     """
-    if engine == 'auto':
+    if engine == "auto":
         ext = os.path.splitext(image_path)[1].lower()
-        if ext == '.ndpi':
-            engine = 'tifffile'
-        elif ext in ['.jpg', '.jpeg', '.png', '.tif', 'tiff']:
-            engine = 'standard'
+        if ext == ".ndpi":
+            engine = "tifffile"
+        elif ext in [".jpg", ".jpeg", ".png", ".tif", "tiff"]:
+            engine = "standard"
         else:
-            engine = 'openslide'
-        print(f'using {engine} engine for {os.path.basename(image_path)}')
+            engine = "openslide"
+        print(f"using {engine} engine for {os.path.basename(image_path)}")
 
     engine = engine.lower()
 
-    if engine == 'openslide':
+    if engine == "openslide":
         return OpenSlideFile(image_path)
-    elif engine == 'tifffile':
+    elif engine == "tifffile":
         return TiffFile(image_path)
-    elif engine == 'standard':
-        mpp = kwargs.get('mpp', None)
+    elif engine == "standard":
+        mpp = kwargs.get("mpp", None)
         return StandardImage(image_path, mpp=mpp)
     else:
-        raise ValueError(f'Invalid engine: {engine}')
+        raise ValueError(f"Invalid engine: {engine}")

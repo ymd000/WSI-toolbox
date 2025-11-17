@@ -23,8 +23,7 @@ class BasePreviewCommand:
     - _get_frame(index, data, f): Get frame for specific patch
     """
 
-    def __init__(self, size: int = 64, font_size: int = 16,
-                 model_name: str | None = None):
+    def __init__(self, size: int = 64, font_size: int = 16, model_name: str | None = None):
         """
         Initialize preview command
 
@@ -35,7 +34,7 @@ class BasePreviewCommand:
         """
         self.size = size
         self.font_size = font_size
-        self.model_name = _get('model_name', model_name)
+        self.model_name = _get("model_name", model_name)
 
     def __call__(self, hdf5_path: str, **kwargs) -> Image.Image:
         """
@@ -50,7 +49,7 @@ class BasePreviewCommand:
         """
         S = self.size
 
-        with h5py.File(hdf5_path, 'r') as f:
+        with h5py.File(hdf5_path, "r") as f:
             # Load metadata
             cols, rows, patch_count, patch_size = self._load_metadata(f)
 
@@ -58,13 +57,13 @@ class BasePreviewCommand:
             data = self._prepare(f, **kwargs)
 
             # Create canvas
-            canvas = Image.new('RGB', (cols * S, rows * S), (0, 0, 0))
+            canvas = Image.new("RGB", (cols * S, rows * S), (0, 0, 0))
 
             # Render all patches (common loop)
             tq = _progress(range(patch_count))
             for i in tq:
-                coord = f['coordinates'][i]
-                patch_array = f['patches'][i]
+                coord = f["coordinates"][i]
+                patch_array = f["patches"][i]
 
                 # Get subclass-specific frame
                 frame = self._get_frame(i, data, f)
@@ -80,10 +79,10 @@ class BasePreviewCommand:
 
     def _load_metadata(self, f: h5py.File):
         """Load common metadata"""
-        cols = f['metadata/cols'][()]
-        rows = f['metadata/rows'][()]
-        patch_count = f['metadata/patch_count'][()]
-        patch_size = f['metadata/patch_size'][()]
+        cols = f["metadata/cols"][()]
+        rows = f["metadata/rows"][()]
+        patch_count = f["metadata/patch_count"][()]
+        patch_size = f["metadata/patch_size"][()]
         return cols, rows, patch_count, patch_size
 
     def _prepare(self, f: h5py.File, **kwargs):
@@ -123,7 +122,7 @@ class PreviewClustersCommand(BasePreviewCommand):
         image = cmd(hdf5_path='data.h5', cluster_name='test')
     """
 
-    def _prepare(self, f: h5py.File, cluster_name: str = ''):
+    def _prepare(self, f: h5py.File, cluster_name: str = ""):
         """
         Prepare cluster frames
 
@@ -135,29 +134,29 @@ class PreviewClustersCommand(BasePreviewCommand):
             dict with 'clusters' and 'frames'
         """
         # Load clusters
-        cluster_path = f'{self.model_name}/clusters'
+        cluster_path = f"{self.model_name}/clusters"
         if cluster_name:
-            cluster_path += f'_{cluster_name}'
+            cluster_path += f"_{cluster_name}"
         if cluster_path not in f:
-            raise RuntimeError(f'{cluster_path} does not exist in HDF5 file')
+            raise RuntimeError(f"{cluster_path} does not exist in HDF5 file")
 
         clusters = f[cluster_path][:]
 
         # Prepare frames for each cluster
         font = ImageFont.truetype(font=get_platform_font(), size=self.font_size)
-        cmap = plt.get_cmap('tab20')
+        cmap = plt.get_cmap("tab20")
         frames = {}
 
         for cluster in np.unique(clusters).tolist() + [-1]:
-            color = mcolors.rgb2hex(cmap(cluster)[:3]) if cluster >= 0 else '#111'
-            frames[cluster] = create_frame(self.size, color, f'{cluster}', font)
+            color = mcolors.rgb2hex(cmap(cluster)[:3]) if cluster >= 0 else "#111"
+            frames[cluster] = create_frame(self.size, color, f"{cluster}", font)
 
-        return {'clusters': clusters, 'frames': frames}
+        return {"clusters": clusters, "frames": frames}
 
     def _get_frame(self, index: int, data, f: h5py.File):
         """Get frame for cluster at index"""
-        cluster = data['clusters'][index]
-        return data['frames'][cluster] if cluster >= 0 else None
+        cluster = data["clusters"][index]
+        return data["frames"][cluster] if cluster >= 0 else None
 
 
 class PreviewScoresCommand(BasePreviewCommand):
@@ -181,24 +180,24 @@ class PreviewScoresCommand(BasePreviewCommand):
             dict with 'scores', 'cmap', and 'font'
         """
         # Load scores
-        score_path = f'{self.model_name}/scores_{score_name}'
+        score_path = f"{self.model_name}/scores_{score_name}"
         scores = f[score_path][()]
 
         # Prepare font and colormap
         font = ImageFont.truetype(font=get_platform_font(), size=self.font_size)
-        cmap = plt.get_cmap('viridis')
+        cmap = plt.get_cmap("viridis")
 
-        return {'scores': scores, 'cmap': cmap, 'font': font}
+        return {"scores": scores, "cmap": cmap, "font": font}
 
     def _get_frame(self, index: int, data, f: h5py.File):
         """Get frame for score at index"""
-        score = data['scores'][index]
+        score = data["scores"][index]
 
         if np.isnan(score):
             return None
 
-        color = mcolors.rgb2hex(data['cmap'](score)[:3])
-        return create_frame(self.size, color, f'{score:.3f}', data['font'])
+        color = mcolors.rgb2hex(data["cmap"](score)[:3])
+        return create_frame(self.size, color, f"{score:.3f}", data["font"])
 
 
 class PreviewLatentPCACommand(BasePreviewCommand):
@@ -222,7 +221,7 @@ class PreviewLatentPCACommand(BasePreviewCommand):
             dict with 'overlays' and 'alpha_mask'
         """
         # Load latent features
-        h = f[f'{self.model_name}/latent_features'][()]  # B, L(16x16), EMB(1024)
+        h = f[f"{self.model_name}/latent_features"][()]  # B, L(16x16), EMB(1024)
         h = h.astype(np.float32)
         s = h.shape
 
@@ -231,7 +230,7 @@ class PreviewLatentPCACommand(BasePreviewCommand):
         # Validate dyadicity
         assert latent_size**2 == s[1]
         if self.size % latent_size != 0:
-            print(f'WARNING: {self.size} is not divisible by {latent_size}')
+            print(f"WARNING: {self.size} is not divisible by {latent_size}")
 
         # Apply PCA
         pca = PCA(n_components=3)
@@ -246,9 +245,9 @@ class PreviewLatentPCACommand(BasePreviewCommand):
         overlays = (latent_pca * 255).astype(np.uint8)  # B, l, l, 3
 
         # Create alpha mask
-        alpha_mask = Image.new('L', (self.size, self.size), int(alpha * 255))
+        alpha_mask = Image.new("L", (self.size, self.size), int(alpha * 255))
 
-        return {'overlays': overlays, 'alpha_mask': alpha_mask, 'latent_size': latent_size}
+        return {"overlays": overlays, "alpha_mask": alpha_mask, "latent_size": latent_size}
 
     def _get_frame(self, index: int, data, f: h5py.File):
         """
@@ -263,11 +262,11 @@ class PreviewLatentPCACommand(BasePreviewCommand):
             PIL.Image: RGBA overlay image
         """
         # Get overlay for this patch
-        overlay = Image.fromarray(data['overlays'][index]).convert('RGBA')
+        overlay = Image.fromarray(data["overlays"][index]).convert("RGBA")
         overlay = overlay.resize((self.size, self.size), Image.NEAREST)
 
         # Apply alpha mask to make it an overlay
-        overlay.putalpha(data['alpha_mask'])
+        overlay.putalpha(data["alpha_mask"])
 
         return overlay
 
@@ -293,7 +292,7 @@ class PreviewLatentClusterCommand(BasePreviewCommand):
             dict with 'overlays' and 'alpha_mask'
         """
         # Load latent clusters
-        clusters = f[f'{self.model_name}/latent_clusters'][()]  # B, L(16x16)
+        clusters = f[f"{self.model_name}/latent_clusters"][()]  # B, L(16x16)
         s = clusters.shape
 
         # Estimate original latent size
@@ -301,18 +300,18 @@ class PreviewLatentClusterCommand(BasePreviewCommand):
         # Validate dyadicity
         assert latent_size**2 == s[1]
         if self.size % latent_size != 0:
-            print(f'WARNING: {self.size} is not divisible by {latent_size}')
+            print(f"WARNING: {self.size} is not divisible by {latent_size}")
 
         # Apply colormap
-        cmap = plt.get_cmap('tab20')
+        cmap = plt.get_cmap("tab20")
         latent_map = cmap(clusters)
         latent_map = latent_map.reshape(s[0], latent_size, latent_size, 4)
         overlays = (latent_map * 255).astype(np.uint8)  # B, l, l, 4
 
         # Create alpha mask
-        alpha_mask = Image.new('L', (self.size, self.size), int(alpha * 255))
+        alpha_mask = Image.new("L", (self.size, self.size), int(alpha * 255))
 
-        return {'overlays': overlays, 'alpha_mask': alpha_mask, 'latent_size': latent_size}
+        return {"overlays": overlays, "alpha_mask": alpha_mask, "latent_size": latent_size}
 
     def _get_frame(self, index: int, data, f: h5py.File):
         """
@@ -327,10 +326,10 @@ class PreviewLatentClusterCommand(BasePreviewCommand):
             PIL.Image: RGBA overlay image
         """
         # Get overlay for this patch
-        overlay = Image.fromarray(data['overlays'][index]).convert('RGBA')
+        overlay = Image.fromarray(data["overlays"][index]).convert("RGBA")
         overlay = overlay.resize((self.size, self.size), Image.NEAREST)
 
         # Apply alpha mask to make it an overlay
-        overlay.putalpha(data['alpha_mask'])
+        overlay.putalpha(data["alpha_mask"])
 
         return overlay

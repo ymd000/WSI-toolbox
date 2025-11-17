@@ -32,7 +32,7 @@ Basic Usage:
 """
 
 # Version info
-__version__ = '0.1.0'
+__version__ = "0.1.0"
 
 # Configuration
 # Commands
@@ -81,43 +81,37 @@ from .wsi_files import (
 
 __all__ = [
     # Version
-    '__version__',
-
+    "__version__",
     # Configuration functions
-    'get_config',
-    'set_default_progress',
-    'set_default_model',
-    'set_default_model_preset',
-    'set_default_device',
-    'set_verbose',
-
+    "get_config",
+    "set_default_progress",
+    "set_default_model",
+    "set_default_model_preset",
+    "set_default_device",
+    "set_verbose",
     # Commands
-    'Wsi2HDF5Command',
-    'PatchEmbeddingCommand',
-    'ClusteringCommand',
-    'PreviewClustersCommand',
-    'PreviewScoresCommand',
-    'PreviewLatentPCACommand',
-    'PreviewLatentClusterCommand',
-    'DziExportCommand',
-
+    "Wsi2HDF5Command",
+    "PatchEmbeddingCommand",
+    "ClusteringCommand",
+    "PreviewClustersCommand",
+    "PreviewScoresCommand",
+    "PreviewLatentPCACommand",
+    "PreviewLatentClusterCommand",
+    "DziExportCommand",
     # Result types
-    'Wsi2HDF5Result',
-    'PatchEmbeddingResult',
-    'ClusteringResult',
-
+    "Wsi2HDF5Result",
+    "PatchEmbeddingResult",
+    "ClusteringResult",
     # WSI files
-    'WSIFile',
-    'OpenSlideFile',
-    'TiffFile',
-    'StandardImage',
-    'create_wsi_file',
-
+    "WSIFile",
+    "OpenSlideFile",
+    "TiffFile",
+    "StandardImage",
+    "create_wsi_file",
     # Models
-    'MODEL_LABELS',
-    'create_model',
-
+    "MODEL_LABELS",
+    "create_model",
     # Utilities
-    'plot_umap',
-    'leiden_cluster',
+    "plot_umap",
+    "leiden_cluster",
 ]

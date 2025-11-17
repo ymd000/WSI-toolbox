@@ -32,25 +32,25 @@ from .wsi import Wsi2HDF5Command
 
 __all__ = [
     # Config
-    'Config',
-    'get_config',
+    "Config",
+    "get_config",
     # Config setters
-    'set_default_progress',
-    'set_default_model',
-    'set_default_model_preset',
-    'set_default_device',
-    'set_verbose',
+    "set_default_progress",
+    "set_default_model",
+    "set_default_model_preset",
+    "set_default_device",
+    "set_verbose",
     # Helper functions
-    '_get',
-    '_progress',
+    "_get",
+    "_progress",
     # Commands
-    'Wsi2HDF5Command',
-    'PatchEmbeddingCommand',
-    'ClusteringCommand',
-    'BasePreviewCommand',
-    'PreviewClustersCommand',
-    'PreviewScoresCommand',
-    'PreviewLatentPCACommand',
-    'PreviewLatentClusterCommand',
-    'DziExportCommand',
+    "Wsi2HDF5Command",
+    "PatchEmbeddingCommand",
+    "ClusteringCommand",
+    "BasePreviewCommand",
+    "PreviewClustersCommand",
+    "PreviewScoresCommand",
+    "PreviewLatentPCACommand",
+    "PreviewLatentClusterCommand",
+    "DziExportCommand",
 ]

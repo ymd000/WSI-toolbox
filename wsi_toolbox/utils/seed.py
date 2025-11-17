@@ -5,8 +5,10 @@ import torch
 
 __GLOBAL_SEED = 42
 
+
 def get_global_seed():
     return __GLOBAL_SEED
+
 
 def fix_global_seed(seed=None):
     if seed is None:

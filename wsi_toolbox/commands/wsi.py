@@ -14,6 +14,7 @@ from . import _progress, get_config
 
 class Wsi2HDF5Result(BaseModel):
     """Result of WSI to HDF5 conversion"""
+
     mpp: float
     original_mpp: float
     scale: int
@@ -37,11 +38,7 @@ class Wsi2HDF5Command:
         result = cmd(input_path='image.ndpi', output_path='output.h5')
     """
 
-    def __init__(self,
-                 patch_size: int = 256,
-                 engine: str = 'auto',
-                 mpp: float = 0,
-                 rotate: bool = True):
+    def __init__(self, patch_size: int = 256, engine: str = "auto", mpp: float = 0, rotate: bool = True):
         """
         Initialize WSI to HDF5 converter
 
@@ -83,54 +80,54 @@ class Wsi2HDF5Command:
         elif original_mpp < 0.360:
             scale = 2
         else:
-            raise RuntimeError(f'Invalid mpp: {original_mpp:.6f}')
+            raise RuntimeError(f"Invalid mpp: {original_mpp:.6f}")
 
         mpp = original_mpp * scale
 
         # Get image dimensions
         W, H = wsi.get_original_size()
         S = self.patch_size  # Scaled patch size
-        T = S * scale        # Original patch size
+        T = S * scale  # Original patch size
 
         x_patch_count = W // T
         y_patch_count = H // T
         width = (W // T) * T
         row_count = H // T
 
-        if get_config().verbose and get_config().progress == 'tqdm':
-            print(f'Original mpp: {original_mpp:.6f}')
-            print(f'Image mpp: {mpp:.6f}')
-            print(f'Target resolutions: {W} x {H}')
-            print(f'Obtained resolutions: {x_patch_count*S} x {y_patch_count*S}')
-            print(f'Scale: {scale}')
-            print(f'Patch size: {T}')
-            print(f'Scaled patch size: {S}')
-            print(f'Row count: {y_patch_count}')
-            print(f'Col count: {x_patch_count}')
+        if get_config().verbose and get_config().progress == "tqdm":
+            print(f"Original mpp: {original_mpp:.6f}")
+            print(f"Image mpp: {mpp:.6f}")
+            print(f"Target resolutions: {W} x {H}")
+            print(f"Obtained resolutions: {x_patch_count * S} x {y_patch_count * S}")
+            print(f"Scale: {scale}")
+            print(f"Patch size: {T}")
+            print(f"Scaled patch size: {S}")
+            print(f"Row count: {y_patch_count}")
+            print(f"Col count: {x_patch_count}")
 
         coordinates = []
 
         # Create HDF5 file
-        with h5py.File(output_path, 'w') as f:
+        with h5py.File(output_path, "w") as f:
             # Write metadata
-            f.create_dataset('metadata/original_mpp', data=original_mpp)
-            f.create_dataset('metadata/original_width', data=W)
-            f.create_dataset('metadata/original_height', data=H)
-            f.create_dataset('metadata/image_level', data=0)
-            f.create_dataset('metadata/mpp', data=mpp)
-            f.create_dataset('metadata/scale', data=scale)
-            f.create_dataset('metadata/patch_size', data=S)
-            f.create_dataset('metadata/cols', data=x_patch_count)
-            f.create_dataset('metadata/rows', data=y_patch_count)
+            f.create_dataset("metadata/original_mpp", data=original_mpp)
+            f.create_dataset("metadata/original_width", data=W)
+            f.create_dataset("metadata/original_height", data=H)
+            f.create_dataset("metadata/image_level", data=0)
+            f.create_dataset("metadata/mpp", data=mpp)
+            f.create_dataset("metadata/scale", data=scale)
+            f.create_dataset("metadata/patch_size", data=S)
+            f.create_dataset("metadata/cols", data=x_patch_count)
+            f.create_dataset("metadata/rows", data=y_patch_count)
 
             # Create patches dataset
             total_patches = f.create_dataset(
-                'patches',
+                "patches",
                 shape=(x_patch_count * y_patch_count, S, S, 3),
                 dtype=np.uint8,
                 chunks=(1, S, S, 3),
-                compression='gzip',
-                compression_opts=9
+                compression="gzip",
+                compression_opts=9,
             )
 
             # Extract patches row by row
@@ -139,12 +136,11 @@ class Wsi2HDF5Command:
             for row in tq:
                 # Read one row
                 image = wsi.read_region((0, row * T, width, T))
-                image = cv2.resize(image, (width // scale, S),
-                                 interpolation=cv2.INTER_LANCZOS4)
+                image = cv2.resize(image, (width // scale, S), interpolation=cv2.INTER_LANCZOS4)
 
                 # Reshape into patches
                 patches = image.reshape(1, S, x_patch_count, S, 3)  # (y, h, x, w, 3)
-                patches = patches.transpose(0, 2, 1, 3, 4)          # (y, x, h, w, 3)
+                patches = patches.transpose(0, 2, 1, 3, 4)  # (y, x, h, w, 3)
                 patches = patches[0]
 
                 # Filter white patches and collect valid ones
@@ -155,10 +151,7 @@ class Wsi2HDF5Command:
 
                     if self.rotate:
                         patch = cv2.rotate(patch, cv2.ROTATE_180)
-                        coordinates.append((
-                            (x_patch_count - 1 - col) * S,
-                            (y_patch_count - 1 - row) * S
-                        ))
+                        coordinates.append(((x_patch_count - 1 - col) * S, (y_patch_count - 1 - row) * S))
                     else:
                         coordinates.append((col * S, row * S))
 
@@ -166,23 +159,20 @@ class Wsi2HDF5Command:
 
                 # Write batch
                 batch = np.array(batch)
-                total_patches[cursor:cursor + len(batch), ...] = batch
+                total_patches[cursor : cursor + len(batch), ...] = batch
                 cursor += len(batch)
 
-                tq.set_description(
-                    f'Selected {len(batch)}/{len(patches)} patches '
-                    f'(row {row}/{y_patch_count})'
-                )
+                tq.set_description(f"Selected {len(batch)}/{len(patches)} patches (row {row}/{y_patch_count})")
                 tq.refresh()
 
             # Resize to actual patch count and save coordinates
             patch_count = len(coordinates)
-            f.create_dataset('coordinates', data=coordinates)
-            f['patches'].resize((patch_count, S, S, 3))
-            f.create_dataset('metadata/patch_count', data=patch_count)
+            f.create_dataset("coordinates", data=coordinates)
+            f["patches"].resize((patch_count, S, S, 3))
+            f.create_dataset("metadata/patch_count", data=patch_count)
 
-        if get_config().verbose and get_config().progress == 'tqdm':
-            print(f'{patch_count} patches were selected.')
+        if get_config().verbose and get_config().progress == "tqdm":
+            print(f"{patch_count} patches were selected.")
 
         return Wsi2HDF5Result(
             mpp=mpp,
@@ -192,5 +182,5 @@ class Wsi2HDF5Command:
             patch_size=S,
             cols=x_patch_count,
             rows=y_patch_count,
-            output_path=output_path
+            output_path=output_path,
         )

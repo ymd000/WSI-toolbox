@@ -10,12 +10,13 @@ from .utils.progress import tqdm_or_st
 # === Global Configuration (Pydantic) ===
 class Config(BaseModel):
     """Global configuration for commands"""
-    progress: str = Field(default='tqdm', description="Progress bar backend")
-    model_name: str = Field(default='uni', description="Default model name")
+
+    progress: str = Field(default="tqdm", description="Progress bar backend")
+    model_name: str = Field(default="uni", description="Default model name")
     model_label: str | None = Field(default=None, description="Model display label")
     model_instance: object | None = Field(default=None, description="Custom model instance")
     verbose: bool = Field(default=True, description="Verbose output")
-    device: str = Field(default='cuda', description="Device for computation")
+    device: str = Field(default="cuda", description="Device for computation")
 
     class Config:
         arbitrary_types_allowed = True
@@ -87,13 +88,13 @@ def _progress(iterable, **kwargs):
 
 
 __all__ = [
-    'Config',
-    'get_config',
-    'set_default_progress',
-    'set_default_model',
-    'set_default_model_preset',
-    'set_default_device',
-    'set_verbose',
-    '_get',
-    '_progress',
+    "Config",
+    "get_config",
+    "set_default_progress",
+    "set_default_model",
+    "set_default_model_preset",
+    "set_default_device",
+    "set_verbose",
+    "_get",
+    "_progress",
 ]

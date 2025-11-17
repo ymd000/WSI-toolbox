@@ -16,9 +16,10 @@ from . import _get, _progress, get_config
 
 class PatchEmbeddingResult(BaseModel):
     """Result of patch embedding extraction"""
+
     feature_dim: int = 0
     patch_count: int = 0
-    model: str = ''
+    model: str = ""
     with_latent: bool = False
     skipped: bool = False
 
@@ -37,12 +38,14 @@ class PatchEmbeddingCommand:
         result = cmd(hdf5_path='data.h5')
     """
 
-    def __init__(self,
-                 batch_size: int = 256,
-                 with_latent: bool = False,
-                 overwrite: bool = False,
-                 model_name: str | None = None,
-                 device: str | None = None):
+    def __init__(
+        self,
+        batch_size: int = 256,
+        with_latent: bool = False,
+        overwrite: bool = False,
+        model_name: str | None = None,
+        device: str | None = None,
+    ):
         """
         Initialize patch embedding extractor
 
@@ -59,16 +62,16 @@ class PatchEmbeddingCommand:
         self.batch_size = batch_size
         self.with_latent = with_latent
         self.overwrite = overwrite
-        self.model_name = _get('model_name', model_name)
-        self.device = _get('device', device)
+        self.model_name = _get("model_name", model_name)
+        self.device = _get("device", device)
 
         # Validate model
-        if self.model_name not in ['uni', 'gigapath', 'virchow2']:
-            raise ValueError(f'Invalid model: {self.model_name}')
+        if self.model_name not in ["uni", "gigapath", "virchow2"]:
+            raise ValueError(f"Invalid model: {self.model_name}")
 
         # Dataset paths
-        self.feature_name = f'{self.model_name}/features'
-        self.latent_feature_name = f'{self.model_name}/latent_features'
+        self.feature_name = f"{self.model_name}/features"
+        self.latent_feature_name = f"{self.model_name}/latent_features"
 
     def __call__(self, hdf5_path: str) -> PatchEmbeddingResult:
         """
@@ -91,7 +94,7 @@ class PatchEmbeddingCommand:
         done = False
 
         try:
-            with h5py.File(hdf5_path, 'r+') as f:
+            with h5py.File(hdf5_path, "r+") as f:
                 latent_size = model.patch_embed.proj.kernel_size[0]
 
                 # Check if already exists
@@ -99,16 +102,14 @@ class PatchEmbeddingCommand:
                     if self.with_latent:
                         if (self.feature_name in f) and (self.latent_feature_name in f):
                             if get_config().verbose:
-                                print('Already extracted. Skipped.')
+                                print("Already extracted. Skipped.")
                             return PatchEmbeddingResult(skipped=True)
                         if (self.feature_name in f) or (self.latent_feature_name in f):
-                            raise RuntimeError(
-                                f'Either {self.feature_name} or {self.latent_feature_name} exists.'
-                            )
+                            raise RuntimeError(f"Either {self.feature_name} or {self.latent_feature_name} exists.")
                     else:
                         if self.feature_name in f:
                             if get_config().verbose:
-                                print('Already extracted. Skipped.')
+                                print("Already extracted. Skipped.")
                             return PatchEmbeddingResult(skipped=True)
 
                 # Delete if overwrite
@@ -117,32 +118,25 @@ class PatchEmbeddingCommand:
                     safe_del(f, self.latent_feature_name)
 
                 # Get patch count
-                patch_count = f['metadata/patch_count'][()]
+                patch_count = f["metadata/patch_count"][()]
 
                 # Create batch indices
-                batch_idx = [
-                    (i, min(i + self.batch_size, patch_count))
-                    for i in range(0, patch_count, self.batch_size)
-                ]
+                batch_idx = [(i, min(i + self.batch_size, patch_count)) for i in range(0, patch_count, self.batch_size)]
 
                 # Create datasets
-                f.create_dataset(
-                    self.feature_name,
-                    shape=(patch_count, model.num_features),
-                    dtype=np.float32
-                )
+                f.create_dataset(self.feature_name, shape=(patch_count, model.num_features), dtype=np.float32)
                 if self.with_latent:
                     f.create_dataset(
                         self.latent_feature_name,
                         shape=(patch_count, latent_size**2, model.num_features),
-                        dtype=np.float16
+                        dtype=np.float16,
                     )
 
                 # Process batches
                 tq = _progress(batch_idx)
                 for i0, i1 in tq:
                     # Load batch
-                    x = f['patches'][i0:i1]
+                    x = f["patches"][i0:i1]
                     x = (torch.from_numpy(x) / 255).permute(0, 3, 1, 2)  # BHWC->BCHW
                     x = x.to(self.device)
                     x = (x - mean) / std
@@ -166,11 +160,11 @@ class PatchEmbeddingCommand:
                     del x, h_tensor
                     torch.cuda.empty_cache()
 
-                    tq.set_description(f'Processing {i0}-{i1} (total={patch_count})')
+                    tq.set_description(f"Processing {i0}-{i1} (total={patch_count})")
                     tq.refresh()
 
                 if get_config().verbose:
-                    print(f'Embeddings dimension: {f[self.feature_name].shape}')
+                    print(f"Embeddings dimension: {f[self.feature_name].shape}")
 
                 done = True
 
@@ -178,20 +172,20 @@ class PatchEmbeddingCommand:
                     feature_dim=model.num_features,
                     patch_count=patch_count,
                     model=self.model_name,
-                    with_latent=self.with_latent
+                    with_latent=self.with_latent,
                 )
 
         finally:
             if done and get_config().verbose:
-                print(f'Wrote {self.feature_name}')
+                print(f"Wrote {self.feature_name}")
             elif not done:
                 # Cleanup on error
-                with h5py.File(hdf5_path, 'a') as f:
+                with h5py.File(hdf5_path, "a") as f:
                     safe_del(f, self.feature_name)
                     if self.with_latent:
                         safe_del(f, self.latent_feature_name)
                 if get_config().verbose:
-                    print(f'ABORTED! Deleted {self.feature_name}')
+                    print(f"ABORTED! Deleted {self.feature_name}")
 
             # Cleanup
             del model, mean, std
