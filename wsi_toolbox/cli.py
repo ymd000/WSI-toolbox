@@ -271,7 +271,6 @@ class CLI(AutoCLI):
         namespace: str = Field("", l="--namespace", s="-N", description="Namespace (auto-generated if empty)")
         filter_ids: list[int] = Field([], l="--filter", s="-f", description="Filter cluster IDs")
         n_components: int = Field(1, s="-n", description="Number of PCA components (1, 2, or 3)")
-        cluster_filter: list[int] = Field([], s="-C", description="Compute PCA only on these cluster IDs")
         scaler: str = Field("minmax", s="-s", choices=["std", "minmax"], description="Scaling method")
         overwrite: bool = Field(False, s="-O")
         show: bool = Field(False, description="Show PCA plot")
@@ -287,7 +286,6 @@ class CLI(AutoCLI):
             n_components=a.n_components,
             namespace=a.namespace if a.namespace else None,
             parent_filters=parent_filters,
-            cluster_filter=a.cluster_filter if a.cluster_filter else None,
             scaler=a.scaler,
             overwrite=a.overwrite,
         )
@@ -383,15 +381,8 @@ class CLI(AutoCLI):
             all_pca = np.concatenate(pca_list)
             all_clusters = np.concatenate(clusters_list)
 
-            # Determine which clusters to plot
-            if a.cluster_filter:
-                cluster_ids = a.cluster_filter
-            elif a.use_parent_clusters and a.filter_ids:
-                # Use parent filter clusters only when --parent is specified
-                cluster_ids = a.filter_ids
-            else:
-                # Show all clusters except noise (-1)
-                cluster_ids = sorted([c for c in np.unique(all_clusters) if c >= 0])
+            # Show all clusters except noise (-1)
+            cluster_ids = sorted([c for c in np.unique(all_clusters) if c >= 0])
 
             # Prepare violin plot data
             data = []
