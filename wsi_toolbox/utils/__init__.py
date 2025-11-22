@@ -143,9 +143,7 @@ def plot_umap_multi(
     file_handles = []
     for i, filename in enumerate(filenames):
         marker = markers[i % len(markers)]
-        handle = plt.Line2D(
-            [0], [0], marker=marker, color="w", markerfacecolor="gray", markersize=8, label=filename
-        )
+        handle = plt.Line2D([0], [0], marker=marker, color="w", markerfacecolor="gray", markersize=8, label=filename)
         file_handles.append(handle)
 
     # Plot all data: cluster-first, then file-specific markers
@@ -188,7 +186,7 @@ def plot_umap_multi(
     # Add legends
     legend1 = ax.legend(handles=cluster_handles, title="Clusters", loc="upper left", bbox_to_anchor=(1.02, 1))
     ax.add_artist(legend1)
-    legend2 = ax.legend(handles=file_handles, title="Sources", loc="upper left", bbox_to_anchor=(1.02, 0.5))
+    ax.legend(handles=file_handles, title="Sources", loc="upper left", bbox_to_anchor=(1.02, 0.5))
 
     ax.set_title(title)
     ax.set_xlabel("UMAP 1")

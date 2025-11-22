@@ -2,7 +2,6 @@
 HDF5 path utilities for consistent namespace and filter handling
 """
 
-import os
 from pathlib import Path
 
 
@@ -18,8 +17,8 @@ def normalize_filename(path: str) -> str:
     """
     name = Path(path).stem
     # Replace forbidden characters
-    name = name.replace('+', '_')  # + is reserved for separator
-    name = name.replace('/', '_')  # path separator
+    name = name.replace("+", "_")  # + is reserved for separator
+    name = name.replace("/", "_")  # path separator
     return name
 
 
@@ -40,14 +39,11 @@ def build_namespace(input_paths: list[str]) -> str:
 
     # Normalize and sort filenames
     names = sorted([normalize_filename(p) for p in input_paths])
-    return '+'.join(names)
+    return "+".join(names)
 
 
 def build_cluster_path(
-    model_name: str,
-    namespace: str = "default",
-    filters: list[list[int]] | None = None,
-    dataset: str = "clusters"
+    model_name: str, namespace: str = "default", filters: list[list[int]] | None = None, dataset: str = "clusters"
 ) -> str:
     """
     Build HDF5 path for clustering data
@@ -78,7 +74,7 @@ def build_cluster_path(
 
     if filters:
         for filter_ids in filters:
-            filter_str = '+'.join(map(str, sorted(filter_ids)))
+            filter_str = "+".join(map(str, sorted(filter_ids)))
             path += f"/filter/{filter_str}"
 
     path += f"/{dataset}"
@@ -102,22 +98,17 @@ def parse_cluster_path(path: str) -> dict:
         >>> parse_cluster_path("uni/default/filter/1+2+3/clusters")
         {'model_name': 'uni', 'namespace': 'default', 'filters': [[1,2,3]], 'dataset': 'clusters'}
     """
-    parts = path.split('/')
+    parts = path.split("/")
 
-    result = {
-        'model_name': parts[0],
-        'namespace': parts[1],
-        'filters': [],
-        'dataset': parts[-1]
-    }
+    result = {"model_name": parts[0], "namespace": parts[1], "filters": [], "dataset": parts[-1]}
 
     # Parse filter hierarchy
     i = 2
     while i < len(parts) - 1:
-        if parts[i] == 'filter':
+        if parts[i] == "filter":
             filter_str = parts[i + 1]
-            filter_ids = [int(x) for x in filter_str.split('+')]
-            result['filters'].append(filter_ids)
+            filter_ids = [int(x) for x in filter_str.split("+")]
+            result["filters"].append(filter_ids)
             i += 2
         else:
             i += 1
@@ -174,9 +165,9 @@ def list_filters(h5_file, model_name: str, namespace: str) -> list[str]:
     def visit_filters(name, obj):
         if isinstance(obj, h5py.Group) and "clusters" in obj:
             # Extract filter string from full path
-            rel_path = name.replace(base_path + '/', '')
+            rel_path = name.replace(base_path + "/", "")
             # Remove '/filter/' segments to get just the IDs
-            filter_str = rel_path.replace('/filter/', '/')
+            filter_str = rel_path.replace("/filter/", "/")
             filters.append(filter_str)
 
     h5_file[base_path].visititems(visit_filters)

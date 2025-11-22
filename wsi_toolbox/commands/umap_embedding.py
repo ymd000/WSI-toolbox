@@ -94,10 +94,7 @@ class UmapCommand:
 
         # Build target path
         target_path = build_cluster_path(
-            self.model_name,
-            self.namespace,
-            filters=self.parent_filters,
-            dataset="umap_coordinates"
+            self.model_name, self.namespace, filters=self.parent_filters, dataset="umap_coordinates"
         )
 
         # Check if already exists
@@ -109,10 +106,7 @@ class UmapCommand:
                     if get_config().verbose:
                         print(f"UMAP already exists at {target_path}")
                     return UmapResult(
-                        n_samples=n_samples,
-                        n_components=self.n_components,
-                        target_path=target_path,
-                        skipped=True
+                        n_samples=n_samples, n_components=self.n_components, target_path=target_path, skipped=True
                     )
 
         # Load features
@@ -134,11 +128,7 @@ class UmapCommand:
         # Write results
         self._write_results(target_path, masks)
 
-        return UmapResult(
-            n_samples=len(features),
-            n_components=self.n_components,
-            target_path=target_path
-        )
+        return UmapResult(n_samples=len(features), n_components=self.n_components, target_path=target_path)
 
     def _write_results(self, target_path: str, masks: list[np.ndarray]):
         """Write UMAP coordinates to HDF5 files"""
@@ -176,7 +166,7 @@ class UmapCommand:
 
     def _ensure_groups(self, h5file: h5py.File, path: str):
         """Ensure all parent groups exist for given path"""
-        parts = path.split('/')
+        parts = path.split("/")
         group_parts = parts[:-1]
 
         current = ""

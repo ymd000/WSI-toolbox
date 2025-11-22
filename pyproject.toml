@@ -101,6 +101,8 @@ watcher = "python -m wsi_toolbox.watcher"
 clean = "rm -rf build/ dist/ *.egg-info/ __pycache__/ && find . -name '*.pyc' -delete && find . -name '__pycache__' -delete"
 build = "python -m build"
 check = "python -m twine check dist/*"
+lint = "ruff check ."
+fix = "ruff check --fix . && ruff format ."
 
 [tool.hatch.metadata]
 allow-direct-references = true

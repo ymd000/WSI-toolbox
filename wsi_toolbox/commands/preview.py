@@ -140,8 +140,8 @@ class PreviewClustersCommand(BasePreviewCommand):
         filters = None
         if filter_path:
             filters = []
-            for part in filter_path.split('/'):
-                filter_ids = [int(x) for x in part.split('+')]
+            for part in filter_path.split("/"):
+                filter_ids = [int(x) for x in part.split("+")]
                 filters.append(filter_ids)
 
         # Build cluster path

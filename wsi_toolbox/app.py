@@ -580,7 +580,7 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
         options=["features", "umap"],
         index=0,
         disabled=st.session_state.locked,
-        help="features: 特徴量ベース（推奨）, umap: UMAP座標ベース（事前にUMAP計算が必要）"
+        help="features: 特徴量ベース（推奨）, umap: UMAP座標ベース（事前にUMAP計算が必要）",
     )
 
     cluster_name = ""

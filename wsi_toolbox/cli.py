@@ -8,7 +8,7 @@ import seaborn as sns
 import torch
 import umap
 from matplotlib import pyplot as plt
-from pydantic import Field, BaseModel
+from pydantic import BaseModel, Field
 from pydantic_autocli import AutoCLI, param
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
@@ -16,8 +16,8 @@ from torch.amp import autocast
 
 from . import commands, common
 from .utils import plot_umap, plot_umap_multi
-from .utils.seed import fix_global_seed, get_global_seed
 from .utils.analysis import leiden_cluster
+from .utils.seed import fix_global_seed, get_global_seed
 
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*force_all_finite.*")
 warnings.filterwarnings(
@@ -180,19 +180,15 @@ class CLI(AutoCLI):
         if not (a.show and a.n_components == 2):
             return
 
-        from .utils.hdf5_paths import build_cluster_path
         from pathlib import Path
+
+        from .utils.hdf5_paths import build_cluster_path
 
         # Determine namespace
         namespace = a.namespace if a.namespace else cmd.namespace
 
         # Build cluster path
-        cluster_path = build_cluster_path(
-            a.model,
-            namespace,
-            filters=parent_filters,
-            dataset="clusters"
-        )
+        cluster_path = build_cluster_path(a.model, namespace, filters=parent_filters, dataset="clusters")
 
         # Check if clusters exist
         with h5py.File(a.input_paths[0], "r") as f:
@@ -220,8 +216,10 @@ class CLI(AutoCLI):
 
                 # Check lengths match
                 if len(umap_coords) != len(clusters):
-                    print(f"Error: Length mismatch in {hdf5_path}: "
-                          f"UMAP coords={len(umap_coords)}, clusters={len(clusters)}")
+                    print(
+                        f"Error: Length mismatch in {hdf5_path}: "
+                        f"UMAP coords={len(umap_coords)}, clusters={len(clusters)}"
+                    )
                     continue
 
                 # Filter out NaN
@@ -239,7 +237,7 @@ class CLI(AutoCLI):
             return
 
         # Plot
-        fig = plot_umap_multi(coords_list, clusters_list, filenames, title="UMAP Projection")
+        plot_umap_multi(coords_list, clusters_list, filenames, title="UMAP Projection")
         plt.show()
 
     class ClusterArgs(CommonArgs):
@@ -267,7 +265,7 @@ class CLI(AutoCLI):
         if result.skipped:
             print(f"⊘ Skipped (already exists): {result.target_path}")
         else:
-            print(f"✓ Clustering completed")
+            print("✓ Clustering completed")
         print(f"  Clusters: {result.cluster_count}")
         print(f"  Samples:  {result.feature_count}")
         print(f"  Path:     {result.target_path}")
@@ -288,8 +286,8 @@ class CLI(AutoCLI):
         # Parse filter path
         filters = []
         if a.filter_ids:
-            for part in a.filter_ids.split('/'):
-                filter_ids = [int(x) for x in part.split('+')]
+            for part in a.filter_ids.split("/"):
+                filter_ids = [int(x) for x in part.split("+")]
                 filters.append(filter_ids)
 
         # Build cluster path
@@ -507,12 +505,13 @@ class CLI(AutoCLI):
     def run_show(self, a: ShowArgs):
         """Show HDF5 file structure and contents"""
         import h5py
-        from .utils.hdf5_paths import list_namespaces, list_filters
+
+        from .utils.hdf5_paths import list_namespaces
 
         with h5py.File(a.input_path, "r") as f:
-            print(f"\n{'='*60}")
+            print(f"\n{'=' * 60}")
             print(f"HDF5 File: {a.input_path}")
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
 
             # Basic metadata
             if "metadata/patch_count" in f:
@@ -578,14 +577,16 @@ class CLI(AutoCLI):
                         if filter_base in f:
                             filters = self._list_filters_recursive(f, filter_base)
                             if filters:
-                                print(f"     filters:")
+                                print("     filters:")
                                 for filter_path in sorted(filters):
                                     full_path = f"{filter_base}/{filter_path}/clusters"
                                     if full_path in f:
                                         fclusters = f[full_path][:]
                                         funique = [c for c in sorted(set(fclusters)) if c >= 0]
                                         fn_clustered = sum(fclusters >= 0)
-                                        print(f"       {filter_path}/ → {len(funique)} clusters, {fn_clustered} patches")
+                                        print(
+                                            f"       {filter_path}/ → {len(funique)} clusters, {fn_clustered} patches"
+                                        )
                 print()
 
             # Scores
@@ -598,7 +599,7 @@ class CLI(AutoCLI):
                         print(f"  {score_name}")
                     print()
 
-            print(f"{'='*60}\n")
+            print(f"{'=' * 60}\n")
 
     def _list_filters_recursive(self, f, base_path, prefix=""):
         """Recursively list all filter paths"""

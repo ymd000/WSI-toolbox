@@ -6,7 +6,7 @@ import h5py
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 
-from ..utils.hdf5_paths import build_cluster_path, build_namespace
+from ..utils.hdf5_paths import build_cluster_path
 
 
 class DataLoader:
@@ -68,13 +68,10 @@ class DataLoader:
                         self.model_name,
                         self.namespace,
                         filters=self.parent_filters if self.parent_filters else None,
-                        dataset="umap_coordinates"
+                        dataset="umap_coordinates",
                     )
                     if umap_path not in f:
-                        raise RuntimeError(
-                            f"UMAP coordinates not found at {umap_path}. "
-                            f"Run 'wsi-toolbox umap' first."
-                        )
+                        raise RuntimeError(f"UMAP coordinates not found at {umap_path}. Run 'wsi-toolbox umap' first.")
                     data = f[umap_path][mask]
                     if np.any(np.isnan(data)):
                         raise RuntimeError(f"NaN values in UMAP coordinates at {umap_path}")
@@ -112,13 +109,12 @@ class DataLoader:
             self.model_name,
             self.namespace,
             filters=self.parent_filters[:-1] if len(self.parent_filters) > 1 else None,
-            dataset="clusters"
+            dataset="clusters",
         )
 
         if parent_cluster_path not in f:
             raise RuntimeError(
-                f"Parent clusters not found at {parent_cluster_path}. "
-                f"Run clustering at parent level first."
+                f"Parent clusters not found at {parent_cluster_path}. Run clustering at parent level first."
             )
 
         clusters = f[parent_cluster_path][:]
@@ -145,7 +141,7 @@ class DataLoader:
                     self.model_name,
                     self.namespace,
                     filters=self.parent_filters[:-1] if len(self.parent_filters) > 1 else None,
-                    dataset="clusters"
+                    dataset="clusters",
                 )
                 clusters = f[parent_cluster_path][:]
             else:

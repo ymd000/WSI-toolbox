@@ -109,10 +109,7 @@ class ClusteringCommand:
 
         # Build target path
         target_path = build_cluster_path(
-            self.model_name,
-            self.namespace,
-            filters=self.parent_filters,
-            dataset="clusters"
+            self.model_name, self.namespace, filters=self.parent_filters, dataset="clusters"
         )
 
         # Check if already exists
@@ -127,7 +124,7 @@ class ClusteringCommand:
                         cluster_count=cluster_count,
                         feature_count=np.sum(clusters >= 0),
                         target_path=target_path,
-                        skipped=True
+                        skipped=True,
                     )
 
         # Load data
@@ -152,11 +149,7 @@ class ClusteringCommand:
         # Write results
         self._write_results(target_path, masks)
 
-        return ClusteringResult(
-            cluster_count=cluster_count,
-            feature_count=len(data),
-            target_path=target_path
-        )
+        return ClusteringResult(cluster_count=cluster_count, feature_count=len(data), target_path=target_path)
 
     def _write_results(self, target_path: str, masks: list[np.ndarray]):
         """Write clustering results to HDF5 files"""
@@ -190,7 +183,7 @@ class ClusteringCommand:
 
     def _ensure_groups(self, h5file: h5py.File, path: str):
         """Ensure all parent groups exist"""
-        parts = path.split('/')
+        parts = path.split("/")
         group_parts = parts[:-1]
 
         current = ""
