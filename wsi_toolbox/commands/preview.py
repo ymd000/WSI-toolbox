@@ -122,21 +122,31 @@ class PreviewClustersCommand(BasePreviewCommand):
         image = cmd(hdf5_path='data.h5', cluster_name='test')
     """
 
-    def _prepare(self, f: h5py.File, cluster_name: str = ""):
+    def _prepare(self, f: h5py.File, namespace: str = "default", filter_path: str = ""):
         """
         Prepare cluster frames
 
         Args:
             f: HDF5 file handle
-            cluster_name: Cluster name suffix
+            namespace: Namespace (e.g., "default", "001+002")
+            filter_path: Filter path (e.g., "1+2+3" or "1+2+3/0+1")
 
         Returns:
             dict with 'clusters' and 'frames'
         """
-        # Load clusters
-        cluster_path = f"{self.model_name}/clusters"
-        if cluster_name:
-            cluster_path += f"_{cluster_name}"
+        from ..utils.hdf5_paths import build_cluster_path
+
+        # Parse filter path
+        filters = None
+        if filter_path:
+            filters = []
+            for part in filter_path.split('/'):
+                filter_ids = [int(x) for x in part.split('+')]
+                filters.append(filter_ids)
+
+        # Build cluster path
+        cluster_path = build_cluster_path(self.model_name, namespace, filters)
+
         if cluster_path not in f:
             raise RuntimeError(f"{cluster_path} does not exist in HDF5 file")
 

@@ -47,7 +47,7 @@ class CLI(BaseMLCLI):
         overwrite: bool = param(False, s="-O")
         engine: str = param("auto", choices=["auto", "openslide", "tifffile"])
         mpp: float = 0
-        norotate: bool = False
+        rotate: bool = False
 
     def run_wsi2h5(self, a: Wsi2h5Args):
         output_path = a.output_path
@@ -66,7 +66,7 @@ class CLI(BaseMLCLI):
             os.makedirs(d, exist_ok=True)
 
         # Use new command pattern (progress is auto-set from global config)
-        cmd = commands.Wsi2HDF5Command(patch_size=a.patch_size, engine=a.engine, mpp=a.mpp, rotate=not a.norotate)
+        cmd = commands.Wsi2HDF5Command(patch_size=a.patch_size, engine=a.engine, mpp=a.mpp, rotate=a.rotate)
         result = cmd(a.input_path, output_path)
         print(f"done: {result.patch_count} patches extracted")
 
@@ -143,8 +143,8 @@ class CLI(BaseMLCLI):
 
     class ClusterArgs(CommonArgs):
         input_paths: list[str] = Field(..., l="--in", s="-i")
-        cluster_name: str = Field("", l="--name", s="-n")
-        sub: list[int] = Field([], l="--sub", s="-s")
+        namespace: str = Field("", l="--namespace", s="-N", description="Namespace (auto-generated if empty)")
+        filter_ids: list[int] = Field([], l="--filter", s="-f", description="Filter cluster IDs for sub-clustering")
         model: str = Field(DEFAULT_MODEL, choices=["gigapath", "uni", "virchow2"])
         resolution: float = 1
         use_umap_embs: float = False
@@ -155,27 +155,34 @@ class CLI(BaseMLCLI):
     def run_cluster(self, a: ClusterArgs):
         commands.set_default_model_preset(a.model)
 
+        # Build parent_filters if filter_ids specified
+        parent_filters = [[a.filter_ids]] if len(a.filter_ids) > 0 else []
+
         # Use new command pattern
         cmd = commands.ClusteringCommand(
             resolution=a.resolution,
-            cluster_name=a.cluster_name,
-            cluster_filter=a.sub,
+            namespace=a.namespace if a.namespace else None,  # None = auto-generate
+            parent_filters=parent_filters,
             use_umap=a.use_umap_embs,
             overwrite=a.overwrite,
         )
-        _ = cmd(a.input_paths)
+        result = cmd(a.input_paths)
 
+        # Build output path for UMAP figure
         if len(a.input_paths) > 1:
-            # multiple
+            # Multiple files
             dir = os.path.dirname(a.input_paths[0])
-            base = fig_path = f"{dir}/{a.name}"
+            namespace = a.namespace if a.namespace else cmd.namespace
+            base = f"{dir}/{namespace}"
         else:
             base, ext = os.path.splitext(a.input_paths[0])
 
-        s = ""
-        if len(a.sub) > 0:
-            s = "sub-" + "-".join([str(i) for i in a.sub]) + "_"
-        fig_path = f"{base}_{s}umap.png"
+        # Add filter suffix if filtering
+        filter_suffix = ""
+        if len(a.filter_ids) > 0:
+            filter_suffix = "_filter_" + "+".join(map(str, a.filter_ids))
+
+        fig_path = f"{base}{filter_suffix}_umap.png"
 
         # Use the new command pattern with plot_umap utility function
         umap_embs = cmd.get_umap_embeddings()
@@ -191,15 +198,29 @@ class CLI(BaseMLCLI):
         input_path: str = Field(..., l="--in", s="-i")
         name: str = Field(...)
         clusters: list[int] = Field([], s="-C")
+        namespace: str = Field("default", l="--namespace", s="-N")
+        filter_ids: str = Field("", l="--filter", s="-f", description="Filter path (e.g., '1+2+3' or '1+2+3/0+1')")
         model: str = Field(DEFAULT_MODEL, choice=["gigapath", "uni", "none"])
         scaler: str = Field("minmax", choices=["std", "minmax"])
         save: bool = False
         noshow: bool = False
 
     def run_cluster_scores(self, a: ClusterScoresArgs):
+        from .utils.hdf5_paths import build_cluster_path
+
+        # Parse filter path
+        filters = []
+        if a.filter_ids:
+            for part in a.filter_ids.split('/'):
+                filter_ids = [int(x) for x in part.split('+')]
+                filters.append(filter_ids)
+
+        # Build cluster path
+        clusters_path = build_cluster_path(a.model, a.namespace, filters if filters else None)
+
         with h5py.File(a.input_path, "r") as f:
             patch_count = f["metadata/patch_count"][()]
-            clusters = f[f"{a.model}/clusters"][:]
+            clusters = f[clusters_path][:]
             mask = np.isin(clusters, a.clusters)
             masked_clusters = clusters[mask]
             masked_features = f[f"{a.model}/features"][mask]
@@ -319,7 +340,8 @@ class CLI(BaseMLCLI):
         input_path: str = Field(..., l="--in", s="-i")
         output_path: str = Field("", l="--out", s="-o")
         model: str = Field(DEFAULT_MODEL, choice=["gigapath", "uni", "virchow2"])
-        cluster_name: str = Field("", l="--name", s="-N")
+        namespace: str = Field("default", l="--namespace", s="-N")
+        filter_ids: str = Field("", l="--filter", s="-f", description="Filter path (e.g., '1+2+3')")
         size: int = 64
         open: bool = False
 
@@ -327,13 +349,13 @@ class CLI(BaseMLCLI):
         output_path = a.output_path
         if not output_path:
             base, ext = os.path.splitext(a.input_path)
-            if a.cluster_name:
-                output_path = f"{base}_{a.cluster_name}_thumb.jpg"
-            else:
-                output_path = f"{base}_thumb.jpg"
+            suffix = f"_{a.namespace}" if a.namespace != "default" else ""
+            if a.filter_ids:
+                suffix += f"_filter_{a.filter_ids.replace('/', '_')}"
+            output_path = f"{base}{suffix}_thumb.jpg"
 
         cmd = commands.PreviewClustersCommand(size=a.size, model_name=a.model)
-        img = cmd(a.input_path, cluster_name=a.cluster_name)
+        img = cmd(a.input_path, namespace=a.namespace, filter_path=a.filter_ids)
         img.save(output_path)
         print(f"wrote {output_path}")
 

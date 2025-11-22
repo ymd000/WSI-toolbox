@@ -239,16 +239,24 @@ def get_hdf5_detail(hdf_path) -> Optional[HDF5Detail]:
             has_features = (f"{model_name}/features" in f) and (len(f[f"{model_name}/features"]) == patch_count)
             cluster_names = ["未施行"]
             if model_name in f:
-                cluster_names = [
-                    k.replace("clusters_", "").replace("clusters", "デフォルト")
-                    for k in f[model_name].keys()
-                    if re.match(r"^clusters.*", k)
-                ]
-                cluster_names = [n for n in cluster_names if "-" not in n]
+                from .utils.hdf5_paths import list_namespaces
+
+                # List all namespaces (directories with clusters dataset)
+                namespaces = list_namespaces(f, model_name)
+                if namespaces:
+                    cluster_names = []
+                    for ns in namespaces:
+                        if ns == "default":
+                            cluster_names.append("デフォルト")
+                        else:
+                            cluster_names.append(ns)
+
             cluster_ids_by_name = {}
             for c in cluster_names:
-                k = "clusters" if c == "デフォルト" else f"clusters_{c}"
-                k = f"{st.session_state.model}/{k}"
+                if c == "未施行":
+                    continue
+                ns = "default" if c == "デフォルト" else c
+                k = f"{model_name}/{ns}/clusters"
                 if k in f:
                     ids = np.unique(f[k][()]).tolist()
                     cluster_ids_by_name[c] = ids
