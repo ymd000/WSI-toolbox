@@ -16,10 +16,10 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.amp import autocast
 
 from . import commands, common
-from .utils import plot_umap, plot_umap_multi
 from .utils.analysis import leiden_cluster
 from .utils.seed import fix_global_seed, get_global_seed
 from .utils.hdf5_paths import build_cluster_path
+from .utils.plot import plot_scatter_2d, plot_violin_1d
 
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*force_all_finite.*")
 warnings.filterwarnings(
@@ -231,7 +231,14 @@ class CLI(AutoCLI):
             return
 
         # Plot
-        plot_umap_multi(coords_list, clusters_list, filenames, title="UMAP Projection")
+        plot_scatter_2d(
+            coords_list,
+            clusters_list,
+            filenames,
+            title="UMAP Projection",
+            xlabel="UMAP 1",
+            ylabel="UMAP 2",
+        )
 
         if a.save:
             # Build filename
@@ -364,65 +371,22 @@ class CLI(AutoCLI):
         # Plot based on dimensionality
         if a.n_components == 1:
             # Violin plot for 1D PCA
-            # Combine all data
-            all_pca = np.concatenate(pca_list)
-            all_clusters = np.concatenate(clusters_list)
-
-            # Show all clusters except noise (-1)
-            cluster_ids = sorted([c for c in np.unique(all_clusters) if c >= 0])
-
-            # Prepare violin plot data
-            data = []
-            labels = []
-
-            # Add "All" first
-            data.append(all_pca)
-            labels.append("All")
-
-            # Then add each cluster
-            for cluster_id in cluster_ids:
-                cluster_mask = all_clusters == cluster_id
-                cluster_values = all_pca[cluster_mask]
-                if len(cluster_values) > 0:
-                    data.append(cluster_values)
-                    labels.append(f"Cluster {cluster_id}")
-
-            if len(data) == 0:
-                print("No data for specified clusters")
-                return
-
-            # Create plot
-            plt.figure(figsize=(12, 8))
-            sns.set_style("whitegrid")
-            ax = plt.subplot(111)
-
-            # Prepare colors: gray for "All", then cluster colors
-            palette = ["gray"]  # Color for "All"
-            for cluster_id in cluster_ids:
-                color = common.get_cluster_color(cluster_id)
-                palette.append(color)
-
-            sns.violinplot(data=data, ax=ax, inner="box", cut=0, zorder=1, alpha=0.5, palette=palette)
-
-            # Scatter: first is "All" with gray, then clusters
-            for i, d in enumerate(data):
-                x = np.random.normal(i, 0.05, size=len(d))
-                if i == 0:
-                    color = "gray"  # All
-                else:
-                    color = common.get_cluster_color(cluster_ids[i - 1])
-                ax.scatter(x, d, alpha=0.8, s=5, color=color, zorder=2)
-
-            ax.set_xticks(np.arange(0, len(labels)))
-            ax.set_xticklabels(labels)
-            ax.set_ylabel("PCA Value")
-            ax.set_title("Distribution of PCA Values by Cluster")
-            ax.grid(axis="y", linestyle="--", alpha=0.7)
-            plt.tight_layout()
-
+            plot_violin_1d(
+                pca_list,
+                clusters_list,
+                title="Distribution of PCA Values by Cluster",
+                ylabel="PCA Value",
+            )
         elif a.n_components == 2:
-            # Scatter plot for 2D PCA (similar to UMAP)
-            plot_umap_multi(pca_list, clusters_list, filenames, title="PCA Projection")
+            # Scatter plot for 2D PCA
+            plot_scatter_2d(
+                pca_list,
+                clusters_list,
+                filenames,
+                title="PCA Projection",
+                xlabel="PCA 1",
+                ylabel="PCA 2",
+            )
 
         if a.save:
             # Build filename
