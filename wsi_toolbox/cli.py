@@ -8,16 +8,16 @@ import seaborn as sns
 import torch
 import umap
 from matplotlib import pyplot as plt
-from pydantic import Field
-from pydantic_autocli import param
+from pydantic import Field, BaseModel
+from pydantic_autocli import AutoCLI, param
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.amp import autocast
 
 from . import commands, common
 from .utils import plot_umap
+from .utils.seed import fix_global_seed, get_global_seed
 from .utils.analysis import leiden_cluster
-from .utils.cli import BaseMLArgs, BaseMLCLI
 
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*force_all_finite.*")
 warnings.filterwarnings(
@@ -34,13 +34,18 @@ def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 
-class CLI(BaseMLCLI):
-    class CommonArgs(BaseMLArgs):
-        # This includes `--seed` param
-        device: str = "cuda"
+class CLI(AutoCLI):
+    class CommonArgs(BaseModel):
+        seed: int = get_global_seed()
+        model: str = param(DEFAULT_MODEL, l="--model-name", s="-M")
         pass
 
+    def prepare(self, a: CommonArgs):
+        fix_global_seed(a.seed)
+        common.set_default_model_preset(a.model)
+
     class Wsi2h5Args(CommonArgs):
+        device: str = "cuda"
         input_path: str = param(..., l="--in", s="-i")
         output_path: str = param("", l="--out", s="-o")
         patch_size: int = param(256, s="-S")
@@ -50,6 +55,7 @@ class CLI(BaseMLCLI):
         rotate: bool = False
 
     def run_wsi2h5(self, a: Wsi2h5Args):
+        commands.set_default_device(a.device)
         output_path = a.output_path
         if not output_path:
             base, ext = os.path.splitext(a.input_path)
@@ -74,12 +80,9 @@ class CLI(BaseMLCLI):
         input_path: str = Field(..., l="--in", s="-i")
         batch_size: int = Field(512, s="-B")
         overwrite: bool = Field(False, s="-O")
-        model_name: str = Field(DEFAULT_MODEL, choice=["gigapath", "uni"], l="--model", s="-M")
         with_latent_features: bool = Field(False, s="-L")
 
     def run_embed(self, a: EmbedArgs):
-        commands.set_default_device(a.device)
-
         # Use new command pattern
         cmd = commands.PatchEmbeddingCommand(
             batch_size=a.batch_size, with_latent=a.with_latent_features, overwrite=a.overwrite
@@ -90,6 +93,7 @@ class CLI(BaseMLCLI):
             print(f"done: {result.feature_dim}D features extracted")
 
     class ProcessSlideArgs(CommonArgs):
+        device: str = "cuda"
         input_path: str = Field(..., l="--in", s="-i")
         overwrite: bool = Field(False, s="-O")
 
@@ -141,58 +145,215 @@ class CLI(BaseMLCLI):
                 del f["gigapath/slide_feature"]
             f.create_dataset("gigapath/slide_feature", data=slide_feature)
 
-    class ClusterArgs(CommonArgs):
+    class UmapArgs(CommonArgs):
         input_paths: list[str] = Field(..., l="--in", s="-i")
         namespace: str = Field("", l="--namespace", s="-N", description="Namespace (auto-generated if empty)")
-        filter_ids: list[int] = Field([], l="--filter", s="-f", description="Filter cluster IDs for sub-clustering")
-        model: str = Field(DEFAULT_MODEL, choices=["gigapath", "uni", "virchow2"])
-        resolution: float = 1
-        use_umap_embs: float = False
-        save: bool = False
-        noshow: bool = False
-        overwrite: bool = Field(False, s="-O")
+        filter_ids: list[int] = Field([], l="--filter", s="-f", description="Filter cluster IDs")
+        n_components: int = Field(2, description="Number of UMAP dimensions")
+        n_neighbors: int = Field(15, description="UMAP n_neighbors")
+        min_dist: float = Field(0.1, description="UMAP min_dist")
+        overwrite: bool = param(False, s="-O")
+        show: bool = Field(False, description="Show UMAP plot")
 
-    def run_cluster(self, a: ClusterArgs):
-        commands.set_default_model_preset(a.model)
-
+    def run_umap(self, a: UmapArgs):
         # Build parent_filters if filter_ids specified
         parent_filters = [[a.filter_ids]] if len(a.filter_ids) > 0 else []
 
-        # Use new command pattern
-        cmd = commands.ClusteringCommand(
-            resolution=a.resolution,
-            namespace=a.namespace if a.namespace else None,  # None = auto-generate
+        # Create UMAP command
+        cmd = commands.UmapCommand(
+            namespace=a.namespace if a.namespace else None,
             parent_filters=parent_filters,
-            use_umap=a.use_umap_embs,
+            n_components=a.n_components,
+            n_neighbors=a.n_neighbors,
+            min_dist=a.min_dist,
             overwrite=a.overwrite,
         )
         result = cmd(a.input_paths)
 
-        # Build output path for UMAP figure
-        if len(a.input_paths) > 1:
-            # Multiple files
-            dir = os.path.dirname(a.input_paths[0])
-            namespace = a.namespace if a.namespace else cmd.namespace
-            base = f"{dir}/{namespace}"
+        if result.skipped:
+            print(f"⊘ Skipped (already exists): {result.target_path}")
         else:
-            base, ext = os.path.splitext(a.input_paths[0])
+            print(f"✓ UMAP computed: {result.n_samples} samples → {result.n_components}D")
+        print(f"  Path: {result.target_path}")
 
-        # Add filter suffix if filtering
-        filter_suffix = ""
-        if len(a.filter_ids) > 0:
-            filter_suffix = "_filter_" + "+".join(map(str, a.filter_ids))
+        # Show plot if requested
+        if a.show and a.n_components == 2:
+            from .utils.hdf5_paths import build_cluster_path
+            from pathlib import Path
+            import matplotlib.cm as cm
 
-        fig_path = f"{base}{filter_suffix}_umap.png"
+            # Determine namespace
+            namespace = a.namespace if a.namespace else cmd.namespace
 
-        # Use the new command pattern with plot_umap utility function
-        umap_embs = cmd.get_umap_embeddings()
-        fig = plot_umap(umap_embs, cmd.total_clusters)
-        if a.save:
-            fig.savefig(fig_path)
-            print(f"wrote {fig_path}")
+            # Try to load clusters for coloring
+            cluster_path = build_cluster_path(
+                a.model,
+                namespace,
+                filters=parent_filters,
+                dataset="clusters"
+            )
 
-        if not a.noshow:
-            plt.show()
+            # Check if clusters exist in first file
+            with h5py.File(a.input_paths[0], "r") as f:
+                has_clusters = cluster_path in f
+
+            if not has_clusters:
+                print("No clusters found. Skipping plot.")
+            else:
+                # Load UMAP coordinates and clusters from all files
+                all_coords = []
+                all_clusters = []
+                all_files = []
+
+                for hdf5_path in a.input_paths:
+                    with h5py.File(hdf5_path, "r") as f:
+                        # Check if both datasets exist
+                        if result.target_path not in f:
+                            print(f"Error: UMAP coordinates not found in {hdf5_path}")
+                            continue
+                        if cluster_path not in f:
+                            print(f"Error: Clusters not found in {hdf5_path}")
+                            continue
+
+                        umap_coords = f[result.target_path][:]
+                        clusters = f[cluster_path][:]
+
+                        # Check lengths match
+                        if len(umap_coords) != len(clusters):
+                            print(f"Error: Length mismatch in {hdf5_path}: "
+                                  f"UMAP coords={len(umap_coords)}, clusters={len(clusters)}")
+                            continue
+
+                        # Filter out NaN
+                        valid_mask = ~np.isnan(umap_coords[:, 0])
+                        valid_coords = umap_coords[valid_mask]
+                        valid_clusters = clusters[valid_mask]
+
+                        all_coords.append(valid_coords)
+                        all_clusters.append(valid_clusters)
+                        # Extract filename without extension
+                        filename = Path(hdf5_path).stem
+                        all_files.append(filename)
+
+                # Check if we have any valid data
+                if len(all_coords) == 0:
+                    print("No valid data to plot.")
+                    return
+
+                # Plot
+                if len(a.input_paths) == 1:
+                    # Single file: use plot_umap utility
+                    fig = plot_umap(all_coords[0], all_clusters[0], title="UMAP Projection")
+                else:
+                    # Multiple files: different markers per file
+                    markers = ['o', 's', '^', 'D', 'v', '<', '>', 'p', '*', 'h']
+
+                    # Get all unique clusters across all files (same namespace = same clusters)
+                    all_unique_clusters = sorted(np.unique(np.concatenate(all_clusters)))
+                    colors = cm.rainbow(np.linspace(0, 1, len(all_unique_clusters)))
+                    cluster_to_color = dict(zip(all_unique_clusters, colors))
+
+                    fig, ax = plt.subplots(figsize=(12, 8))
+
+                    # Plot: cluster-first, then file-specific markers
+                    cluster_handles = []
+                    file_handles = []
+
+                    # Create handles for cluster legend (colors)
+                    for cluster_id in all_unique_clusters:
+                        handle = plt.Line2D([0], [0], marker='o', color='w',
+                                          markerfacecolor=cluster_to_color[cluster_id],
+                                          markersize=8, label=f'Cluster {cluster_id}')
+                        cluster_handles.append(handle)
+
+                    # Create handles for file legend (markers)
+                    for i, filename in enumerate(all_files):
+                        marker = markers[i % len(markers)]
+                        handle = plt.Line2D([0], [0], marker=marker, color='w',
+                                          markerfacecolor='gray', markersize=8,
+                                          label=filename)
+                        file_handles.append(handle)
+
+                    # Plot all data
+                    for cluster_id in all_unique_clusters:
+                        for i, (coords, clusters, filename) in enumerate(zip(all_coords, all_clusters, all_files)):
+                            mask = clusters == cluster_id
+                            if np.sum(mask) > 0:  # Only plot if this file has patches in this cluster
+                                marker = markers[i % len(markers)]
+                                ax.scatter(
+                                    coords[mask, 0],
+                                    coords[mask, 1],
+                                    marker=marker,
+                                    c=[cluster_to_color[cluster_id]],
+                                    s=10,
+                                    alpha=0.6
+                                )
+
+                    # Draw cluster numbers at centroids
+                    all_coords_combined = np.concatenate(all_coords)
+                    all_clusters_combined = np.concatenate(all_clusters)
+                    for cluster_id in all_unique_clusters:
+                        if cluster_id < 0:  # Skip noise cluster
+                            continue
+                        cluster_points = all_coords_combined[all_clusters_combined == cluster_id]
+                        if len(cluster_points) < 1:
+                            continue
+                        centroid_x = np.mean(cluster_points[:, 0])
+                        centroid_y = np.mean(cluster_points[:, 1])
+                        ax.text(
+                            centroid_x,
+                            centroid_y,
+                            str(cluster_id),
+                            fontsize=12,
+                            fontweight="bold",
+                            ha="center",
+                            va="center",
+                            bbox=dict(facecolor="white", alpha=0.7, edgecolor="none"),
+                        )
+
+                    # Add legends
+                    legend1 = ax.legend(handles=cluster_handles, title="Clusters",
+                                       loc='upper left', bbox_to_anchor=(1.02, 1))
+                    ax.add_artist(legend1)
+                    legend2 = ax.legend(handles=file_handles, title="Sources",
+                                       loc='upper left', bbox_to_anchor=(1.02, 0.5))
+
+                    ax.set_title("UMAP Projection")
+                    ax.set_xlabel("UMAP 1")
+                    ax.set_ylabel("UMAP 2")
+                    plt.tight_layout()
+
+                plt.show()
+
+    class ClusterArgs(CommonArgs):
+        input_paths: list[str] = Field(..., l="--in", s="-i")
+        namespace: str = Field("", l="--namespace", s="-N", description="Namespace (auto-generated if empty)")
+        filter_ids: list[int] = Field([], l="--filter", s="-f", description="Filter cluster IDs")
+        resolution: float = Field(1.0, description="Clustering resolution")
+        source: str = Field("features", choices=["features", "umap"], description="Data source")
+        overwrite: bool = Field(False, s="-O")
+
+    def run_cluster(self, a: ClusterArgs):
+        # Build parent_filters
+        parent_filters = [[a.filter_ids]] if len(a.filter_ids) > 0 else []
+
+        # Execute clustering
+        cmd = commands.ClusteringCommand(
+            resolution=a.resolution,
+            namespace=a.namespace if a.namespace else None,
+            parent_filters=parent_filters,
+            source=a.source,
+            overwrite=a.overwrite,
+        )
+        result = cmd(a.input_paths)
+
+        if result.skipped:
+            print(f"⊘ Skipped (already exists): {result.target_path}")
+        else:
+            print(f"✓ Clustering completed")
+        print(f"  Clusters: {result.cluster_count}")
+        print(f"  Samples:  {result.feature_count}")
+        print(f"  Path:     {result.target_path}")
 
     class ClusterScoresArgs(CommonArgs):
         input_path: str = Field(..., l="--in", s="-i")
@@ -200,7 +361,6 @@ class CLI(BaseMLCLI):
         clusters: list[int] = Field([], s="-C")
         namespace: str = Field("default", l="--namespace", s="-N")
         filter_ids: str = Field("", l="--filter", s="-f", description="Filter path (e.g., '1+2+3' or '1+2+3/0+1')")
-        model: str = Field(DEFAULT_MODEL, choice=["gigapath", "uni", "none"])
         scaler: str = Field("minmax", choices=["std", "minmax"])
         save: bool = False
         noshow: bool = False
@@ -282,7 +442,6 @@ class CLI(BaseMLCLI):
     class ClusterLatentArgs(CommonArgs):
         input_path: str = Field(..., l="--in", s="-i")
         name: str = ""
-        model: str = Field(DEFAULT_MODEL, choices=["gigapath", "uni", "virchow2"])
         resolution: float = 1
         use_umap_embs: float = False
         save: bool = False
@@ -339,7 +498,6 @@ class CLI(BaseMLCLI):
     class PreviewArgs(CommonArgs):
         input_path: str = Field(..., l="--in", s="-i")
         output_path: str = Field("", l="--out", s="-o")
-        model: str = Field(DEFAULT_MODEL, choice=["gigapath", "uni", "virchow2"])
         namespace: str = Field("default", l="--namespace", s="-N")
         filter_ids: str = Field("", l="--filter", s="-f", description="Filter path (e.g., '1+2+3')")
         size: int = 64
@@ -365,7 +523,6 @@ class CLI(BaseMLCLI):
     class PreviewScoresArgs(CommonArgs):
         input_path: str = Field(..., l="--in", s="-i")
         output_path: str = Field("", l="--out", s="-o")
-        model: str = Field(DEFAULT_MODEL, choice=["gigapath", "uni", "unified", "none"])
         score_name: str = Field(..., l="--name", s="-N")
         size: int = 64
         open: bool = False
@@ -387,7 +544,6 @@ class CLI(BaseMLCLI):
     class PreviewLatentPcaArgs(CommonArgs):
         input_path: str = Field(..., l="--in", s="-i")
         output_path: str = Field("", l="--out", s="-o")
-        model: str = Field(DEFAULT_MODEL, choice=["gigapath", "uni", "none"])
         size: int = 64
         open: bool = False
 
@@ -398,7 +554,6 @@ class CLI(BaseMLCLI):
             output_path = f"{base}_latent_pca.jpg"
 
         # Use new command pattern
-        commands.set_default_model_preset(a.model)
         cmd = commands.PreviewLatentPCACommand(size=a.size)
         img = cmd(a.input_path)
         img.save(output_path)
@@ -410,7 +565,6 @@ class CLI(BaseMLCLI):
     class PreviewLatentArgs(CommonArgs):
         input_path: str = Field(..., l="--in", s="-i")
         output_path: str = Field("", l="--out", s="-o")
-        model: str = Field(DEFAULT_MODEL, choice=["gigapath", "uni", "none"])
         size: int = 64
         open: bool = False
 
@@ -421,7 +575,6 @@ class CLI(BaseMLCLI):
             output_path = f"{base}_latent_clusters.jpg"
 
         # Use new command pattern
-        commands.set_default_model_preset(a.model)
         cmd = commands.PreviewLatentClusterCommand(size=a.size)
         img = cmd(a.input_path)
         img.save(output_path)

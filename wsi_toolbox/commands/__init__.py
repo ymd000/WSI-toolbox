@@ -26,6 +26,7 @@ from .preview import (
     PreviewLatentPCACommand,
     PreviewScoresCommand,
 )
+from .umap_embedding import UmapCommand
 
 # Import and export all commands
 from .wsi import Wsi2HDF5Command
@@ -46,6 +47,7 @@ __all__ = [
     # Commands
     "Wsi2HDF5Command",
     "PatchEmbeddingCommand",
+    "UmapCommand",
     "ClusteringCommand",
     "BasePreviewCommand",
     "PreviewClustersCommand",

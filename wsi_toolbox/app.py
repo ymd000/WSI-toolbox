@@ -491,17 +491,22 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
                     base, ext = os.path.splitext(f.path)
                     umap_path = f"{base}_umap.png"
                     thumb_path = f"{base}_thumb.jpg"
-                    with st.spinner("クラスタリング中...", show_time=True):
-                        # Use new command pattern
+                    with st.spinner("UMAP計算中...", show_time=True):
+                        # Compute UMAP first
                         commands.set_default_model_preset(st.session_state.model)
-                        cmd = commands.ClusteringCommand(
-                            resolution=DEFAULT_CLUSTER_RESOLUTION, cluster_name="", use_umap=True
+                        umap_cmd = commands.UmapCommand()
+                        _ = umap_cmd([hdf5_path])
+
+                    with st.spinner("クラスタリング中...", show_time=True):
+                        # Cluster using features
+                        cluster_cmd = commands.ClusteringCommand(
+                            resolution=DEFAULT_CLUSTER_RESOLUTION, namespace="default", source="features"
                         )
-                        _ = cmd([hdf5_path])
+                        _ = cluster_cmd([hdf5_path])
 
                         # Plot UMAP
-                        umap_embs = cmd.get_umap_embeddings()
-                        fig = plot_umap(umap_embs, cmd.total_clusters)
+                        umap_embs = umap_cmd.get_embeddings()
+                        fig = plot_umap(umap_embs, cluster_cmd.total_clusters)
                         fig.savefig(umap_path, bbox_inches="tight", pad_inches=0.5)
                     st.write(f"クラスタリング結果を{os.path.basename(umap_path)}に出力しました。")
 
@@ -570,8 +575,12 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
     overwrite = form.checkbox(
         "計算済みクラスタ結果を再利用しない（再計算を行う）", value=False, disabled=st.session_state.locked
     )
-    use_umap_embs = form.checkbox(
-        "エッジの重み算出にUMAPの埋め込みを使用する", value=False, disabled=st.session_state.locked
+    source = form.radio(
+        "クラスタリングのデータソース",
+        options=["features", "umap"],
+        index=0,
+        disabled=st.session_state.locked,
+        help="features: 特徴量ベース（推奨）, umap: UMAP座標ベース（事前にUMAP計算が必要）"
     )
 
     cluster_name = ""
@@ -649,15 +658,26 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
 
         # Use new command pattern
         commands.set_default_model_preset(st.session_state.model)
+
+        # Compute UMAP if needed
+        t = "と".join([f.name for f in selected_files])
+        with st.spinner(f"{t}のUMAP計算中...", show_time=True):
+            umap_cmd = commands.UmapCommand(
+                namespace=cluster_name if cluster_name else None,
+                parent_filters=[subcluster_filter] if subcluster_filter else [],
+                overwrite=overwrite,
+            )
+            _ = umap_cmd([f.path for f in selected_files])
+
+        # Clustering
         cluster_cmd = commands.ClusteringCommand(
             resolution=resolution,
-            cluster_name=cluster_name,
-            cluster_filter=subcluster_filter,
-            use_umap=use_umap_embs,
+            namespace=cluster_name if cluster_name else None,
+            parent_filters=[subcluster_filter] if subcluster_filter else [],
+            source=source,
             overwrite=overwrite,
         )
 
-        t = "と".join([f.name for f in selected_files])
         with st.spinner(f"{t}をクラスタリング中...", show_time=True):
             p = P(selected_files[0].path)
             if len(selected_files) > 1:
@@ -671,7 +691,7 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
             _ = cluster_cmd([f.path for f in selected_files])
 
             # Plot UMAP
-            umap_embs = cluster_cmd.get_umap_embeddings()
+            umap_embs = umap_cmd.get_embeddings()
             fig = plot_umap(umap_embs, cluster_cmd.total_clusters)
             fig.savefig(umap_path, bbox_inches="tight", pad_inches=0.5)
 
