@@ -282,72 +282,144 @@ class CLI(AutoCLI):
         print(f"  Samples:  {result.feature_count}")
         print(f"  Path:     {result.target_path}")
 
-    class ClusterScoresArgs(CommonArgs):
-        input_path: str = Field(..., l="--in", s="-i")
-        name: str = Field(...)
-        clusters: list[int] = Field([], s="-C")
-        namespace: str = Field("default", l="--namespace", s="-N")
-        filter_ids: str = Field("", l="--filter", s="-f", description="Filter path (e.g., '1+2+3' or '1+2+3/0+1')")
+    class PcaArgs(CommonArgs):
+        input_paths: list[str] = Field(..., l="--in", s="-i")
+        n_components: int = Field(2, s="-n", description="Number of PCA components (1, 2, or 3)")
+        namespace: str = Field("", l="--namespace", s="-N", description="Namespace (auto-generated if empty)")
+        filter_ids: list[int] = Field([], l="--filter", s="-f", description="Parent filter cluster IDs")
+        cluster_filter: list[int] = Field([], s="-C", description="Compute PCA only on these cluster IDs")
         scaler: str = Field("minmax", choices=["std", "minmax"])
+        overwrite: bool = Field(False, s="-O")
+        show: bool = False
         save: bool = False
-        noshow: bool = False
 
-    def run_cluster_scores(self, a: ClusterScoresArgs):
+    def run_pca(self, a: PcaArgs):
+        # Build parent_filters
+        parent_filters = [[a.filter_ids]] if len(a.filter_ids) > 0 else []
+
+        # Execute PCA command
+        cmd = commands.PCACommand(
+            n_components=a.n_components,
+            namespace=a.namespace if a.namespace else None,
+            parent_filters=parent_filters,
+            cluster_filter=a.cluster_filter if a.cluster_filter else None,
+            scaler=a.scaler,
+            overwrite=a.overwrite,
+        )
+        result = cmd(a.input_paths)
+
+        if result.skipped:
+            print(f"⊘ Skipped (already exists): {result.target_path}")
+        else:
+            print("✓ PCA computed")
+        print(f"  Components: {result.n_components}")
+        print(f"  Samples:    {result.n_samples}")
+        print(f"  Path:       {result.target_path}")
+
+        # Plot if requested
+        if not a.show:
+            return
+
+        if a.n_components not in [1, 2]:
+            print("Plotting only supported for 1D or 2D PCA")
+            return
+
+        from pathlib import Path
+
         from .utils.hdf5_paths import build_cluster_path
 
-        # Parse filter path
-        filters = []
-        if a.filter_ids:
-            for part in a.filter_ids.split("/"):
-                filter_ids = [int(x) for x in part.split("+")]
-                filters.append(filter_ids)
+        # Determine namespace
+        namespace = a.namespace if a.namespace else cmd.namespace
 
         # Build cluster path
-        clusters_path = build_cluster_path(a.model, a.namespace, filters if filters else None)
+        cluster_path = build_cluster_path(a.model, namespace, filters=parent_filters, dataset="clusters")
 
-        with h5py.File(a.input_path, "r") as f:
-            patch_count = f["metadata/patch_count"][()]
-            clusters = f[clusters_path][:]
-            mask = np.isin(clusters, a.clusters)
-            masked_clusters = clusters[mask]
-            masked_features = f[f"{a.model}/features"][mask]
+        # Check if clusters exist
+        with h5py.File(a.input_paths[0], "r") as f:
+            if cluster_path not in f:
+                print("No clusters found. Skipping plot.")
+                return
 
-        pca = PCA(n_components=1)
-        values = pca.fit_transform(masked_features)
+        # Load PCA values and clusters from all files
+        pca_list = []
+        clusters_list = []
+        filenames = []
 
-        if a.scaler == "minmax":
-            scaler = MinMaxScaler()
-            values = scaler.fit_transform(values)
-        elif a.scaler == "std":
-            scaler = StandardScaler()
-            values = scaler.fit_transform(values)
-            values = sigmoid(values)
-        else:
-            raise ValueError("Invalid scaler:", a.scaler)
+        for hdf5_path in a.input_paths:
+            with h5py.File(hdf5_path, "r") as f:
+                # Check if both datasets exist
+                if result.target_path not in f:
+                    print(f"Error: PCA values not found in {hdf5_path}")
+                    continue
+                if cluster_path not in f:
+                    print(f"Error: Clusters not found in {hdf5_path}")
+                    continue
 
-        data = []
-        labels = []
+                pca_values = f[result.target_path][:]
+                clusters = f[cluster_path][:]
 
-        for target in a.clusters:
-            cluster_values = values[masked_clusters == target].flatten()
-            data.append(cluster_values)
-            labels.append(f"Cluster {target}")
+                # Check lengths match
+                if len(pca_values) != len(clusters):
+                    print(f"Error: Length mismatch in {hdf5_path}: PCA={len(pca_values)}, clusters={len(clusters)}")
+                    continue
 
-        with h5py.File(a.input_path, "a") as f:
-            path = f"{a.model}/scores_{a.name}"
-            if path in f:
-                del f[path]
-                print(f"Deleted {path}")
-            vv = np.full(patch_count, np.nan, dtype=values.dtype)
-            vv[mask] = values[:, 0]
-            f[path] = vv
-            print(f"Wrote {path} in {a.input_path}")
+                # Filter out NaN
+                if a.n_components == 1:
+                    valid_mask = ~np.isnan(pca_values)
+                else:
+                    valid_mask = ~np.isnan(pca_values[:, 0])
 
-        if not a.noshow:
+                valid_pca = pca_values[valid_mask]
+                valid_clusters = clusters[valid_mask]
+
+                pca_list.append(valid_pca)
+                clusters_list.append(valid_clusters)
+                filenames.append(Path(hdf5_path).stem)
+
+        # Check if we have any valid data
+        if len(pca_list) == 0:
+            print("No valid data to plot.")
+            return
+
+        # Plot based on dimensionality
+        if a.n_components == 1:
+            # Violin plot for 1D PCA
+            # Combine all data
+            all_pca = np.concatenate(pca_list)
+            all_clusters = np.concatenate(clusters_list)
+
+            # Determine which clusters to plot
+            if a.cluster_filter:
+                cluster_ids = a.cluster_filter
+            else:
+                # Show all clusters except noise (-1)
+                cluster_ids = sorted([c for c in np.unique(all_clusters) if c >= 0])
+
+            # Prepare violin plot data
+            data = []
+            labels = []
+
+            # Add "All" first
+            data.append(all_pca)
+            labels.append("All")
+
+            # Then add each cluster
+            for cluster_id in cluster_ids:
+                cluster_mask = all_clusters == cluster_id
+                cluster_values = all_pca[cluster_mask]
+                if len(cluster_values) > 0:
+                    data.append(cluster_values)
+                    labels.append(f"Cluster {cluster_id}")
+
+            if len(data) == 0:
+                print("No data for specified clusters")
+                return
+
+            # Create plot
             plt.figure(figsize=(12, 8))
             sns.set_style("whitegrid")
             ax = plt.subplot(111)
-            sns.violinplot(data=data, ax=ax, inner="box", cut=0, zorder=1, alpha=0.5)  # cut=0で分布全体を表示
+            sns.violinplot(data=data, ax=ax, inner="box", cut=0, zorder=1, alpha=0.5)
 
             for i, d in enumerate(data):
                 x = np.random.normal(i, 0.05, size=len(d))
@@ -355,16 +427,22 @@ class CLI(AutoCLI):
 
             ax.set_xticks(np.arange(0, len(labels)))
             ax.set_xticklabels(labels)
-            ax.set_ylabel("PCA Values")
+            ax.set_ylabel("PCA Value")
             ax.set_title("Distribution of PCA Values by Cluster")
             ax.grid(axis="y", linestyle="--", alpha=0.7)
             plt.tight_layout()
-            if a.save:
-                p = P(a.input_path)
-                fig_path = str(p.parent / f"{p.stem}_score-{a.name}_pca.png")
-                plt.savefig(fig_path)
-                print(f"wrote {fig_path}")
-            plt.show()
+
+        elif a.n_components == 2:
+            # Scatter plot for 2D PCA (similar to UMAP)
+            plot_umap_multi(pca_list, clusters_list, filenames, title="PCA Projection")
+
+        if a.save:
+            p = P(a.input_paths[0])
+            fig_path = str(p.parent / f"{p.stem}_pca{a.n_components}.png")
+            plt.savefig(fig_path)
+            print(f"wrote {fig_path}")
+
+        plt.show()
 
     class ClusterLatentArgs(CommonArgs):
         input_path: str = Field(..., l="--in", s="-i")

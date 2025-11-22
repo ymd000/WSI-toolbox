@@ -19,6 +19,7 @@ from ..common import (
 from .clustering import ClusteringCommand
 from .dzi_export import DziExportCommand
 from .patch_embedding import PatchEmbeddingCommand
+from .pca import PCACommand
 from .preview import (
     BasePreviewCommand,
     PreviewClustersCommand,
@@ -49,6 +50,7 @@ __all__ = [
     "PatchEmbeddingCommand",
     "UmapCommand",
     "ClusteringCommand",
+    "PCACommand",
     "BasePreviewCommand",
     "PreviewClustersCommand",
     "PreviewScoresCommand",
