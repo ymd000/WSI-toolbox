@@ -10,6 +10,7 @@ import h5py
 import numpy as np
 from pydantic import BaseModel
 
+from ..utils.white import create_white_detector
 from ..wsi_files import create_wsi_file
 from . import _progress, get_config
 
@@ -72,8 +73,6 @@ class Wsi2HDF5Command:
         # Set white detection function
         if white_detector is None:
             # Default: use ptp method with default threshold
-            from ..utils.white import create_white_detector
-
             self._is_white_patch = create_white_detector("ptp")
         else:
             self._is_white_patch = white_detector

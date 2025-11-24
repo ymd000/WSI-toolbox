@@ -2,8 +2,10 @@
 Global configuration and settings for WSI-toolbox
 """
 
+from matplotlib import pyplot as plt
 from pydantic import BaseModel, Field
 
+from .models import MODEL_LABELS
 from .utils.progress import Progress
 
 
@@ -56,8 +58,6 @@ def set_default_model_preset(preset_name: str):
     Args:
         preset_name: One of 'uni', 'gigapath', 'virchow2'
     """
-    from .models import MODEL_LABELS
-
     if preset_name not in MODEL_LABELS:
         raise ValueError(f"Invalid preset: {preset_name}. Must be one of {list(MODEL_LABELS.keys())}")
 
@@ -81,7 +81,7 @@ def set_default_cluster_cmap(cmap_name: str):
     _config.cluster_cmap = cmap_name
 
 
-def get_cluster_color(cluster_id: int):
+def _get_cluster_color(cluster_id: int):
     """
     Get color for cluster ID using global colormap
 
@@ -91,7 +91,6 @@ def get_cluster_color(cluster_id: int):
     Returns:
         Color in matplotlib format (array or string)
     """
-    from matplotlib import pyplot as plt
 
     cmap = plt.get_cmap(_config.cluster_cmap)
     return cmap(cluster_id % 20)  # Modulo to handle colormaps with limited colors
@@ -118,7 +117,7 @@ __all__ = [
     "set_default_device",
     "set_verbose",
     "set_default_cluster_cmap",
-    "get_cluster_color",
+    "_get_cluster_color",
     "_get",
     "_progress",
 ]

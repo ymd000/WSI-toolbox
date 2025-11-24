@@ -9,7 +9,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from ..utils.hdf5_paths import build_cluster_path, build_namespace
-from . import _get, get_config
+from . import _get, _progress, get_config
 from .data_loader import DataLoader
 
 
@@ -136,8 +136,6 @@ class PCACommand:
                     )
 
         # Execute with progress tracking
-        from ..common import _progress
-
         with _progress(total=3, desc="PCA") as pbar:
             # Load data
             pbar.set_description("Loading features")

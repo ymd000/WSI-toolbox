@@ -10,9 +10,10 @@ from pydantic import BaseModel, Field
 from pydantic_autocli import AutoCLI, param
 
 from . import commands, common
-from .utils.hdf5_paths import build_cluster_path
+from .utils.hdf5_paths import build_cluster_path, list_namespaces
 from .utils.plot import plot_scatter_2d, plot_violin_1d
 from .utils.seed import fix_global_seed, get_global_seed
+from .utils.white import create_white_detector
 
 warnings.filterwarnings("ignore", category=FutureWarning, message=".*force_all_finite.*")
 warnings.filterwarnings(
@@ -57,19 +58,23 @@ class CLI(AutoCLI):
             # Default: ptp with default threshold
             return ("ptp", None)
 
-        if len(detect_white) < 2:
-            raise ValueError("--detect-white requires method and threshold (e.g., 'ptp 0.9')")
+        if len(detect_white) == 0:
+            return ("ptp", None)
 
         method = detect_white[0]
+
+        # Validate method
+        valid_methods = ("ptp", "otsu", "std", "green")
+        if method not in valid_methods:
+            raise ValueError(f"Invalid method '{method}'. Must be one of {valid_methods}")
+
+        if len(detect_white) == 1:
+            return (method, None)
+
         try:
             threshold = float(detect_white[1])
         except ValueError:
             raise ValueError(f"Invalid threshold value '{detect_white[1]}'. Must be a number.")
-
-        # Validate method
-        valid_methods = ["ptp", "otsu", "std", "green"]
-        if method not in valid_methods:
-            raise ValueError(f"Invalid method '{method}'. Must be one of {valid_methods}")
 
         return (method, threshold)
 
@@ -108,8 +113,6 @@ class CLI(AutoCLI):
             os.makedirs(d, exist_ok=True)
 
         # Parse white detection settings and create detector function
-        from .utils.white import create_white_detector
-
         white_method, white_threshold = self._parse_white_detect(a.detect_white)
         white_detector = create_white_detector(white_method, white_threshold)
 
@@ -513,10 +516,6 @@ class CLI(AutoCLI):
 
     def run_show(self, a: ShowArgs):
         """Show HDF5 file structure and contents"""
-        import h5py
-
-        from .utils.hdf5_paths import list_namespaces
-
         with h5py.File(a.input_path, "r") as f:
             print(f"\n{'=' * 60}")
             print(f"HDF5 File: {a.input_path}")
@@ -612,8 +611,6 @@ class CLI(AutoCLI):
 
     def _list_filters_recursive(self, f, base_path, prefix=""):
         """Recursively list all filter paths"""
-        import h5py
-
         filters = []
         if base_path not in f:
             return filters

@@ -7,7 +7,7 @@ import numpy as np
 from pydantic import BaseModel
 
 from ..utils.hdf5_paths import build_cluster_path, build_namespace
-from . import _get, get_config
+from . import _get, _progress, get_config
 from .data_loader import DataLoader
 
 
@@ -82,7 +82,7 @@ class UmapCommand:
 
     def __call__(self, hdf5_paths: str | list[str]) -> UmapResult:
         """Execute UMAP embedding"""
-        import umap
+        import umap  # Heavy import - lazy load only when needed
 
         # Normalize to list
         if isinstance(hdf5_paths, str):
@@ -115,8 +115,6 @@ class UmapCommand:
                     )
 
         # Execute with progress tracking
-        from ..common import _progress
-
         with _progress(total=3, desc="UMAP") as pbar:
             # Load features
             pbar.set_description("Loading features")

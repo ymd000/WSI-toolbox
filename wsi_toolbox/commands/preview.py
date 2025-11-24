@@ -11,7 +11,8 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import MinMaxScaler
 
 from ..utils import create_frame, get_platform_font
-from . import _get, _progress
+from ..utils.hdf5_paths import build_cluster_path
+from . import _get, _get_cluster_color, _progress
 
 
 class BasePreviewCommand:
@@ -145,7 +146,6 @@ class PreviewClustersCommand(BasePreviewCommand):
         Returns:
             dict with 'clusters' and 'frames'
         """
-        from ..utils.hdf5_paths import build_cluster_path
 
         # Parse filter path
         filters = None
@@ -164,14 +164,13 @@ class PreviewClustersCommand(BasePreviewCommand):
         clusters = f[cluster_path][:]
 
         # Prepare frames for each cluster
-        from . import get_cluster_color
 
         font = ImageFont.truetype(font=get_platform_font(), size=self.font_size)
         frames = {}
 
         for cluster in np.unique(clusters).tolist() + [-1]:
             if cluster >= 0:
-                color = mcolors.rgb2hex(get_cluster_color(cluster)[:3])
+                color = mcolors.rgb2hex(_get_cluster_color(cluster)[:3])
             else:
                 color = "#111"
             frames[cluster] = create_frame(self.size, color, f"{cluster}", font)
@@ -214,7 +213,6 @@ class PreviewScoresCommand(BasePreviewCommand):
         Returns:
             dict with 'scores', 'cmap', and 'font'
         """
-        from ..utils.hdf5_paths import build_cluster_path
 
         # Parse filter path
         filters = None

@@ -67,7 +67,6 @@ from .models import (
 )
 
 # Utility functions
-from .utils import plot_umap
 from .utils.analysis import leiden_cluster
 
 # WSI file classes

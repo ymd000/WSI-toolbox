@@ -6,6 +6,8 @@ import numpy as np
 import seaborn as sns
 from matplotlib import pyplot as plt
 
+from ..common import _get_cluster_color
+
 
 def plot_scatter_2d(
     coords_list: list[np.ndarray],
@@ -33,13 +35,12 @@ def plot_scatter_2d(
     Returns:
         matplotlib Figure
     """
-    from ..common import get_cluster_color
 
     markers = ["o", "s", "^", "D", "v", "<", ">", "p", "*", "h"]
 
     # Get all unique clusters (same namespace = same clusters)
     all_unique_clusters = sorted(np.unique(np.concatenate(clusters_list)))
-    cluster_to_color = {cluster_id: get_cluster_color(cluster_id) for cluster_id in all_unique_clusters}
+    cluster_to_color = {cluster_id: _get_cluster_color(cluster_id) for cluster_id in all_unique_clusters}
 
     fig, ax = plt.subplots(figsize=figsize)
 
@@ -165,7 +166,6 @@ def plot_violin_1d(
     Returns:
         matplotlib Figure
     """
-    from ..common import get_cluster_color
 
     # Combine all data
     all_values = np.concatenate(values_list)
@@ -201,7 +201,7 @@ def plot_violin_1d(
     # Prepare colors: gray for "All", then cluster colors
     palette = ["gray"]  # Color for "All"
     for cluster_id in cluster_ids:
-        color = get_cluster_color(cluster_id)
+        color = _get_cluster_color(cluster_id)
         palette.append(color)
 
     sns.violinplot(data=data, ax=ax, inner="box", cut=0, zorder=1, alpha=0.5, palette=palette)
@@ -212,7 +212,7 @@ def plot_violin_1d(
         if i == 0:
             color = "gray"  # All
         else:
-            color = get_cluster_color(cluster_ids[i - 1])
+            color = _get_cluster_color(cluster_ids[i - 1])
         ax.scatter(x, d, alpha=0.8, s=5, color=color, zorder=2)
 
     ax.set_xticks(np.arange(0, len(labels)))

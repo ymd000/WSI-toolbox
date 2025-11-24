@@ -1,5 +1,6 @@
 import multiprocessing
 
+from tqdm import tqdm
 import igraph as ig
 import leidenalg as la
 import networkx as nx
@@ -8,7 +9,6 @@ from joblib import Parallel, delayed
 from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
 
-from .progress import tqdm_or_st
 
 
 def find_optimal_components(features, threshold=0.95):
@@ -55,7 +55,7 @@ def leiden_cluster(features, umap_emb_func=None, resolution=1.0, n_jobs=-1, prog
     progress_count = 5  # (UMAP), PCA, KNN, edges, leiden, Finalize
     if use_umap_embs:
         progress_count += 1
-    tq = tqdm_or_st(total=progress_count, backend=progress)
+    tq = tqdm(total=progress_count, backend=progress)
 
     # 1. UMAP cluster if needed
     if use_umap_embs:

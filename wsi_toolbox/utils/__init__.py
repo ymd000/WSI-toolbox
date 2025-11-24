@@ -1,6 +1,4 @@
-import logging
 import sys
-import warnings
 
 import numpy as np
 from matplotlib import colors as mcolors
@@ -41,159 +39,16 @@ def create_frame(size, color, text, font):
     return frame
 
 
-def plot_umap(embeddings, clusters, title="UMAP + Clustering", figsize=(10, 8)):
-    from ..common import get_cluster_color
-
-    cluster_ids = sorted(list(set(clusters)))
-
-    fig, ax = plt.subplots(figsize=figsize)
-
-    for i, cluster_id in enumerate(cluster_ids):
-        coords = embeddings[clusters == cluster_id]
-        if cluster_id == -1:
-            color = "black"
-            label = "Noise"
-            size = 12
-        else:
-            color = [get_cluster_color(cluster_id)]
-            label = f"Cluster {cluster_id}"
-            size = 7
-        plt.scatter(coords[:, 0], coords[:, 1], s=size, c=color, label=label)
-
-    for cluster_id in cluster_ids:
-        if cluster_id < 0:
-            continue
-        cluster_points = embeddings[clusters == cluster_id]
-        if len(cluster_points) < 1:
-            continue
-        centroid_x = np.mean(cluster_points[:, 0])
-        centroid_y = np.mean(cluster_points[:, 1])
-        ax.text(
-            centroid_x,
-            centroid_y,
-            str(cluster_id),
-            fontsize=12,
-            fontweight="bold",
-            ha="center",
-            va="center",
-            bbox=dict(facecolor="white", alpha=0.1, edgecolor="none"),
-        )
-
-    plt.title(title)
-    plt.xlabel("UMAP Dimension 1")
-    plt.ylabel("UMAP Dimension 2")
-    plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
-    plt.tight_layout()
-
-    return fig
-
-
-def plot_umap_multi(
-    coords_list: list[np.ndarray],
-    clusters_list: list[np.ndarray],
-    filenames: list[str],
-    title: str = "UMAP Projection",
-    figsize: tuple = (12, 8),
-):
+def safe_del(hdf_file, key_path):
     """
-    Plot UMAP embeddings from single or multiple files
+    Safely delete a dataset from HDF5 file if it exists
 
     Args:
-        coords_list: List of coordinate arrays (one per file)
-        clusters_list: List of cluster arrays (one per file)
-        filenames: List of file names for legend
-        title: Plot title
-        figsize: Figure size
-
-    Returns:
-        matplotlib Figure
+        hdf_file: h5py.File object
+        key_path: Dataset path to delete
     """
-    # Single file case: use existing plot_umap
-    if len(coords_list) == 1:
-        return plot_umap(coords_list[0], clusters_list[0], title=title, figsize=figsize)
-
-    # Multiple files case
-    from ..common import get_cluster_color
-
-    markers = ["o", "s", "^", "D", "v", "<", ">", "p", "*", "h"]
-
-    # Get all unique clusters (same namespace = same clusters)
-    all_unique_clusters = sorted(np.unique(np.concatenate(clusters_list)))
-    cluster_to_color = {cluster_id: get_cluster_color(cluster_id) for cluster_id in all_unique_clusters}
-
-    fig, ax = plt.subplots(figsize=figsize)
-
-    # Create handles for cluster legend (colors)
-    cluster_handles = []
-    for cluster_id in all_unique_clusters:
-        if cluster_id < 0:  # Skip noise
-            continue
-        handle = plt.Line2D(
-            [0],
-            [0],
-            marker="o",
-            color="w",
-            markerfacecolor=cluster_to_color[cluster_id],
-            markersize=8,
-            label=f"Cluster {cluster_id}",
-        )
-        cluster_handles.append(handle)
-
-    # Create handles for file legend (markers)
-    file_handles = []
-    for i, filename in enumerate(filenames):
-        marker = markers[i % len(markers)]
-        handle = plt.Line2D([0], [0], marker=marker, color="w", markerfacecolor="gray", markersize=8, label=filename)
-        file_handles.append(handle)
-
-    # Plot all data: cluster-first, then file-specific markers
-    for cluster_id in all_unique_clusters:
-        for i, (coords, clusters, filename) in enumerate(zip(coords_list, clusters_list, filenames)):
-            mask = clusters == cluster_id
-            if np.sum(mask) > 0:  # Only plot if this file has patches in this cluster
-                marker = markers[i % len(markers)]
-                ax.scatter(
-                    coords[mask, 0],
-                    coords[mask, 1],
-                    marker=marker,
-                    c=[cluster_to_color[cluster_id]],
-                    s=10,
-                    alpha=0.6,
-                )
-
-    # Draw cluster numbers at centroids
-    all_coords_combined = np.concatenate(coords_list)
-    all_clusters_combined = np.concatenate(clusters_list)
-    for cluster_id in all_unique_clusters:
-        if cluster_id < 0:  # Skip noise cluster
-            continue
-        cluster_points = all_coords_combined[all_clusters_combined == cluster_id]
-        if len(cluster_points) < 1:
-            continue
-        centroid_x = np.mean(cluster_points[:, 0])
-        centroid_y = np.mean(cluster_points[:, 1])
-        ax.text(
-            centroid_x,
-            centroid_y,
-            str(cluster_id),
-            fontsize=12,
-            fontweight="bold",
-            ha="center",
-            va="center",
-            bbox=dict(facecolor="white", alpha=0.7, edgecolor="none"),
-        )
-
-    # Add legends
-    legend1 = ax.legend(handles=cluster_handles, title="Clusters", loc="upper left", bbox_to_anchor=(1.02, 1))
-    ax.add_artist(legend1)
-    ax.legend(handles=file_handles, title="Sources", loc="upper left", bbox_to_anchor=(1.02, 0.5))
-
-    ax.set_title(title)
-    ax.set_xlabel("UMAP 1")
-    ax.set_ylabel("UMAP 2")
-    plt.tight_layout()
-
-    return fig
+    if key_path in hdf_file:
+        del hdf_file[key_path]
 
 
 def hover_images_on_scatters(scatters, imagess, ax=None, offset=(150, 30)):
@@ -252,15 +107,3 @@ def hover_images_on_scatters(scatters, imagess, ax=None, offset=(150, 30)):
             return
 
     fig.canvas.mpl_connect("motion_notify_event", hover)
-
-
-def is_in_streamlit_context():
-    logging.getLogger("streamlit").setLevel(logging.ERROR)
-    warnings.filterwarnings("ignore", module="streamlit.*")
-    try:
-        from streamlit.runtime.scriptrunner import get_script_run_ctx
-
-        ctx = get_script_run_ctx()
-        return ctx is not None
-    except ImportError:
-        return False

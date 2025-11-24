@@ -102,7 +102,8 @@ watcher = "python -m wsi_toolbox.watcher"
 clean = "rm -rf build/ dist/ *.egg-info/ __pycache__/ && find . -name '*.pyc' -delete && find . -name '__pycache__' -delete"
 build = "python -m build"
 check = "python -m twine check dist/*"
-lint = "ruff check ."
+lint = "ruff check . --extend-ignore F401"
+lint-strict = "ruff check ."
 fix = "ruff check --fix . && ruff format ."
 
 [tool.hatch.metadata]
@@ -138,7 +139,6 @@ exclude = [
     "build",
     "dist",
     "*.egg-info",
-    "wsi_toolbox/exp.py",  # Experimental file
 ]
 
 # Same as Black.
@@ -147,19 +147,20 @@ line-length = 120
 [tool.ruff.lint]
 # Enable specific rule categories
 select = [
-    "E",   # pycodestyle errors
-    "F",   # Pyflakes
-    "W",   # pycodestyle warnings
-    "I",   # isort
+    "F",        # Pyflakes (unused imports, undefined names, etc.)
+    "I",        # isort (import sorting)
+    "E402",     # Module level import not at top of file
+    "PLC0415",  # Import outside toplevel (import in function)
 ]
 
 # Ignore specific rules
-ignore = [
-    "E501",  # Line too long (handled by formatter)
-]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+# Optional/heavy imports that need lazy loading
+"wsi_toolbox/app.py" = ["E402", "PLC0415"]  # Streamlit app with special import patterns
+"wsi_toolbox/utils/progress.py" = ["PLC0415"]  # Optional dependency (streamlit) lazy loading
+"wsi_toolbox/commands/umap_embedding.py" = ["PLC0415"]  # Heavy import (umap) lazy loading
 
 [tool.ruff.lint.isort]
 known-first-party = ["wsi_toolbox"]
-
-[tool.ruff.lint.per-file-ignores]
-"wsi_toolbox/app.py" = ["E402"]

@@ -8,8 +8,8 @@ Design pattern: __init__ for configuration, __call__ for execution
 from ..common import (
     Config,
     _get,
+    _get_cluster_color,
     _progress,
-    get_cluster_color,
     get_config,
     set_default_cluster_cmap,
     set_default_device,
@@ -47,8 +47,8 @@ __all__ = [
     "set_default_cluster_cmap",
     # Helper functions
     "_get",
+    "_get_cluster_color",
     "_progress",
-    "get_cluster_color",
     # Commands
     "Wsi2HDF5Command",
     "PatchEmbeddingCommand",

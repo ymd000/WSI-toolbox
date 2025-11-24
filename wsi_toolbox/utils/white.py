@@ -8,14 +8,14 @@ import cv2
 import numpy as np
 
 
-def is_white_patch_ptp(patch, rgb_range_threshold=20, white_ratio=0.9):
+def is_white_patch_ptp(patch, white_ratio_threshold=0.9, rgb_range_threshold=20):
     """
     Check if a patch is mostly white/blank using PTP (peak-to-peak) method
 
     Args:
         patch: RGB patch (H, W, 3)
-        rgb_range_threshold: Threshold for RGB range (max-min)
-        white_ratio: Ratio threshold for white pixels
+        white_ratio_threshold: Ratio threshold for white pixels (0-1)
+        rgb_range_threshold: Threshold for RGB range (max-min, 0-255)
 
     Returns:
         bool: True if patch is considered white/blank
@@ -25,16 +25,16 @@ def is_white_patch_ptp(patch, rgb_range_threshold=20, white_ratio=0.9):
     white_pixels = np.sum(rgb_range < rgb_range_threshold)
     total_pixels = patch.shape[0] * patch.shape[1]
     white_ratio_calculated = white_pixels / total_pixels
-    return white_ratio_calculated > white_ratio
+    return white_ratio_calculated > white_ratio_threshold
 
 
-def is_white_patch_otsu(patch, white_ratio=0.8):
+def is_white_patch_otsu(patch, white_ratio_threshold=0.8):
     """
     Check if a patch is mostly white/blank using Otsu method
 
     Args:
         patch: RGB patch (H, W, 3)
-        white_ratio: Ratio threshold for white pixels
+        white_ratio_threshold: Ratio threshold for white pixels (0-1)
 
     Returns:
         bool: True if patch is considered white/blank
@@ -45,17 +45,17 @@ def is_white_patch_otsu(patch, white_ratio=0.8):
     white_pixels = np.sum(binary == 255)
     total_pixels = patch.shape[0] * patch.shape[1]
     white_ratio_calculated = white_pixels / total_pixels
-    return white_ratio_calculated > white_ratio
+    return white_ratio_calculated > white_ratio_threshold
 
 
-def is_white_patch_std(patch, rgb_std_threshold=7.0, white_ratio=0.75):
+def is_white_patch_std(patch, white_ratio_threshold=0.75, rgb_std_threshold=7.0):
     """
     Check if a patch is mostly white/blank using STD method
 
     Args:
         patch: RGB patch (H, W, 3)
-        rgb_std_threshold: Threshold for RGB standard deviation
-        white_ratio: Ratio threshold for white pixels
+        white_ratio_threshold: Ratio threshold for white pixels (0-1)
+        rgb_std_threshold: Threshold for RGB standard deviation (0-255)
 
     Returns:
         bool: True if patch is considered white/blank
@@ -65,7 +65,7 @@ def is_white_patch_std(patch, rgb_std_threshold=7.0, white_ratio=0.75):
     white_pixels = np.sum(rgb_std_pixels)
     total_pixels = patch.shape[0] * patch.shape[1]
     white_ratio_calculated = white_pixels / total_pixels
-    return white_ratio_calculated > white_ratio
+    return white_ratio_calculated > white_ratio_threshold
 
 
 def is_white_patch_green(patch, green_threshold=0.9):

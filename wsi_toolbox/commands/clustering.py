@@ -16,7 +16,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from ..utils.analysis import find_optimal_components, process_edges_batch
 from ..utils.hdf5_paths import build_cluster_path, build_namespace
-from . import _get, get_config
+from . import _get, _progress, get_config
 from .data_loader import DataLoader
 
 
@@ -136,8 +136,6 @@ class ClusteringCommand:
                     )
 
         # Execute with progress tracking
-        from ..common import _progress
-
         # Total: 1 (load) + 5 (clustering steps) + 1 (write) = 7
         with _progress(total=7, desc="Clustering") as pbar:
             # Load data

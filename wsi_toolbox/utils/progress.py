@@ -1,8 +1,6 @@
-import time
-from typing import TYPE_CHECKING, Iterable, Optional, TypeVar, Union
+from typing import Iterable, Optional, TypeVar
 
-if TYPE_CHECKING:
-    import tqdm.std
+from tqdm import tqdm
 
 T = TypeVar("T")
 
@@ -37,8 +35,6 @@ class TqdmProgress(BaseProgress):
     """tqdm wrapper"""
 
     def __init__(self, iterable: Optional[Iterable[T]] = None, total: Optional[int] = None, desc: str = "", **kwargs):
-        from tqdm import tqdm
-
         self._pbar = tqdm(iterable=iterable, total=total, desc=desc, **kwargs)
 
     def update(self, n: int = 1) -> None:
@@ -64,6 +60,9 @@ class StreamlitProgress(BaseProgress):
     """Streamlit progress bar wrapper"""
 
     def __init__(self, iterable: Optional[Iterable[T]] = None, total: Optional[int] = None, desc: str = "", **kwargs):
+        # import streamlit as st はここに置くこと
+        # import streamlit as st はここに置くこと
+        # import streamlit as st はここに置くこと
         import streamlit as st  # noqa: E402
 
         self.iterable = iterable
@@ -195,11 +194,7 @@ def Progress(
         BaseProgress instance
     """
     if backend == "tqdm":
-        try:
-            return TqdmProgress(iterable=iterable, total=total, desc=desc, **kwargs)
-        except ImportError:
-            print("tqdm not found, falling back to dummy progress")
-            return DummyProgress(iterable=iterable, total=total, desc=desc, **kwargs)
+        return TqdmProgress(iterable=iterable, total=total, desc=desc, **kwargs)
     elif backend == "streamlit":
         try:
             return StreamlitProgress(iterable=iterable, total=total, desc=desc, **kwargs)
@@ -210,148 +205,3 @@ def Progress(
         return DummyProgress(iterable=iterable, total=total, desc=desc, **kwargs)
     else:
         raise ValueError(f"Unknown backend: {backend}")
-
-
-def tqdm_or_st(
-    iterable: Optional[Iterable[T]] = None, backend: str = "tqdm", **kwargs
-) -> Union["tqdm.std.tqdm", StreamlitProgress]:
-    """
-    指定されたバックエンドのプログレスバーを返す
-
-    Args:
-        iterable: 進捗を表示するイテレータ
-        backend: バックエンド ("tqdm", "streamlit")
-        **kwargs: tqdmやStreamlitProgressに渡す引数
-
-    Returns:
-        tqdm または StreamlitProgress オブジェクト
-    """
-    # if backend == "auto":
-    #     try:
-    #         import streamlit as st
-    #         if st._is_running_with_streamlit:
-    #             backend = "streamlit"
-    #         else:
-    #             backend = "tqdm"
-    #     except (ImportError, AttributeError):
-    #         backend = "tqdm"
-
-    assert backend in ["tqdm", "streamlit"]
-
-    if backend == "tqdm":
-        try:
-            from tqdm import tqdm
-
-            return tqdm(iterable, **kwargs)
-        except ImportError:
-            print("tqdmが見つからないため、Streamlitバックエンドを試行します...")
-            backend = "streamlit"
-
-    # Streamlitを使用
-    if backend == "streamlit":
-        try:
-            return StreamlitProgress(iterable, **kwargs)
-        except ImportError:
-            print("Streamlitが見つかりません。プログレスバーなしで実行します。")
-            # フォールバック: 何もしないダミープログレスバー
-            try:
-                from tqdm import tqdm
-
-                return tqdm(iterable, disable=True, **kwargs)
-            except ImportError:
-                # tqdmもないので、単なるイテレータを返す
-                class DummyTqdm:
-                    def __init__(self, iterable=None, **kwargs):
-                        self.iterable = iterable
-
-                    def update(self, n=1):
-                        pass
-
-                    def close(self):
-                        pass
-
-                    def set_description(self, desc=None, refresh=True):
-                        pass
-
-                    def set_postfix(self, ordered_dict=None, **kwargs):
-                        pass
-
-                    def __iter__(self):
-                        if self.iterable is None:
-                            raise ValueError("イテレータがありません")
-                        for x in self.iterable:
-                            yield x
-
-                    def __enter__(self):
-                        return self
-
-                    def __exit__(self, *args, **kwargs):
-                        pass
-
-                return DummyTqdm(iterable, **kwargs)
-
-
-# 基本的な使用例
-def basic_example():
-    """基本的な使用例"""
-    items = list(range(10))
-
-    # tqdmと同じ使い方
-    for item in tqdm_or_st(items, desc="基本的な例", backend="tqdm"):
-        time.sleep(0.1)
-        print(f"処理中: {item}")
-
-
-# Streamlitの使用例
-def streamlit_example():
-    """Streamlitでの使用例 (Streamlitアプリ内で実行する必要があります)"""
-    import streamlit as st
-
-    st.title("処理の進捗表示")
-
-    items = list(range(10))
-    results = []
-
-    # 自動的にStreamlitを検出
-    for item in tqdm_or_st(items, desc="処理中...", backend="auto"):
-        time.sleep(0.2)
-        results.append(item * 2)
-
-    st.write("結果:", results)
-
-
-# コンテキストマネージャとしての使用例
-def context_manager_example():
-    """コンテキストマネージャとしての使用例"""
-    total_steps = 5
-
-    # with文で使用
-    with tqdm_or_st(total=total_steps, desc="手動更新", backend="tqdm") as pbar:
-        for i in range(total_steps):
-            time.sleep(0.2)
-
-            # 説明を更新
-            if i == 2:
-                pbar.set_description(f"ステップ {i + 1}/{total_steps}")
-
-            # 追加情報を表示
-            pbar.set_postfix(progress=f"{(i + 1) / total_steps:.0%}")
-
-            # 進捗を更新
-            pbar.update(1)
-
-
-# テスト用のメイン関数
-def main():
-    print("基本的な使用例:")
-    basic_example()
-
-    print("\nコンテキストマネージャとしての使用例:")
-    context_manager_example()
-
-    print("\nStreamlitの例はStreamlitアプリ内で実行してください")
-    # streamlit_example()  # Streamlitアプリ内でのみ実行可能
-
-
-if __name__ == "__main__":
-    main()

@@ -4,6 +4,8 @@ HDF5 path utilities for consistent namespace and filter handling
 
 from pathlib import Path
 
+import h5py
+
 
 def normalize_filename(path: str) -> str:
     """
@@ -127,8 +129,6 @@ def list_namespaces(h5_file, model_name: str) -> list[str]:
     Returns:
         List of namespace strings
     """
-    import h5py
-
     if model_name not in h5_file:
         return []
 
@@ -154,8 +154,6 @@ def list_filters(h5_file, model_name: str, namespace: str) -> list[str]:
     Returns:
         List of filter strings (e.g., ["1+2+3", "5"])
     """
-    import h5py
-
     base_path = f"{model_name}/{namespace}/filter"
     if base_path not in h5_file:
         return []

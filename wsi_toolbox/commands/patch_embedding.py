@@ -10,7 +10,7 @@ import torch
 from pydantic import BaseModel
 
 from ..models import create_model
-from ..utils.helpers import safe_del
+from ..utils import safe_del
 from . import _get, _progress, get_config
 
 
