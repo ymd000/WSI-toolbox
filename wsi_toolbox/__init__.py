@@ -72,8 +72,10 @@ from .utils.analysis import leiden_cluster
 
 # WSI file classes
 from .wsi_files import (
+    NativeLevel,
     OpenSlideFile,
     PyramidalTiffFile,
+    PyramidalWSIFile,
     StandardImage,
     WSIFile,
     create_wsi_file,
@@ -105,6 +107,8 @@ __all__ = [
     "ClusteringResult",
     # WSI files
     "WSIFile",
+    "PyramidalWSIFile",
+    "NativeLevel",
     "OpenSlideFile",
     "PyramidalTiffFile",
     "StandardImage",

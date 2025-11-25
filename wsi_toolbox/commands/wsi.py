@@ -94,7 +94,9 @@ class Wsi2HDF5Command:
         # Calculate scale based on mpp
         original_mpp = wsi.get_mpp()
 
-        if 0.360 < original_mpp < 0.500:
+
+        if 0.360 < original_mpp < 0.660:
+            # mpp ≃ 0.5 mpp
             scale = 1
         elif original_mpp < 0.360:
             scale = 2

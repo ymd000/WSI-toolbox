@@ -2,14 +2,12 @@
 DZI export command for Deep Zoom Image format
 """
 
-import math
 from pathlib import Path
 
-import numpy as np
 from PIL import Image
 from pydantic import BaseModel
 
-from ..wsi_files import WSIFile, create_wsi_file
+from ..wsi_files import PyramidalWSIFile, WSIFile, create_wsi_file
 from . import _progress, get_config
 
 
@@ -83,6 +81,13 @@ class DziCommand:
                 raise ValueError("Either wsi_path or wsi_file must be provided")
             wsi_file = create_wsi_file(wsi_path)
 
+        # Check if pyramidal (DZI supported)
+        if not isinstance(wsi_file, PyramidalWSIFile):
+            raise TypeError(
+                f"DZI export requires PyramidalWSIFile, got {type(wsi_file).__name__}. "
+                "StandardImage does not support DZI export."
+            )
+
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -102,7 +107,7 @@ class DziCommand:
 
         # Generate all levels
         for level in range(max_level, -1, -1):
-            self._generate_level(wsi_file, files_dir, level, max_level, width, height)
+            self._generate_level(wsi_file, files_dir, level)
 
         # Write DZI XML
         dzi_xml = wsi_file.get_dzi_xml(self.tile_size, self.overlap, self.format)
@@ -123,25 +128,15 @@ class DziCommand:
 
     def _generate_level(
         self,
-        wsi_file: WSIFile,
+        wsi_file: PyramidalWSIFile,
         files_dir: Path,
         level: int,
-        max_level: int,
-        width: int,
-        height: int,
     ):
         """Generate all tiles for a single level."""
         level_dir = files_dir / str(level)
         level_dir.mkdir(exist_ok=True)
 
-        # Calculate dimensions at this level
-        dzi_downsample = 2 ** (max_level - level)
-        level_width = math.ceil(width / dzi_downsample)
-        level_height = math.ceil(height / dzi_downsample)
-
-        # Calculate number of tiles
-        cols = math.ceil(level_width / self.tile_size)
-        rows = math.ceil(level_height / self.tile_size)
+        level_width, level_height, cols, rows = wsi_file.get_dzi_level_info(level, self.tile_size)
 
         if get_config().verbose:
             print(f"Level {level}: {level_width}x{level_height}, {cols}x{rows} tiles")
