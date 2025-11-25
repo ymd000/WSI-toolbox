@@ -2,9 +2,49 @@
 HDF5 path utilities for consistent namespace and filter handling
 """
 
+import re
 from pathlib import Path
 
 import h5py
+
+# Reserved namespace names that cannot be used
+# These conflict with existing HDF5 structure (e.g., model/features, model/metadata)
+RESERVED_NAMESPACES = frozenset({"features", "metadata", "latent_features"})
+
+# Valid namespace pattern (allows +, -, _, alphanumeric)
+# Examples: "default", "experiment001", "file1+file2"
+_NAMESPACE_PATTERN = re.compile(r"^[a-zA-Z0-9_][a-zA-Z0-9_+\-]*$")
+
+
+def validate_namespace(namespace: str) -> bool:
+    """
+    Validate namespace string
+
+    Args:
+        namespace: Namespace to validate
+
+    Returns:
+        True if valid, False if invalid
+
+    Rules:
+        - Cannot be a reserved name (features, metadata, latent_features)
+        - Must match pattern: alphanumeric, underscore, hyphen, +
+        - Cannot be empty
+
+    Examples:
+        >>> validate_namespace("default")  # True
+        >>> validate_namespace("experiment001")  # True
+        >>> validate_namespace("file1+file2")  # True
+        >>> validate_namespace("features")  # False (reserved)
+        >>> validate_namespace("")  # False (empty)
+    """
+    if not namespace:
+        return False
+
+    if namespace in RESERVED_NAMESPACES:
+        return False
+
+    return bool(_NAMESPACE_PATTERN.match(namespace))
 
 
 def normalize_filename(path: str) -> str:
@@ -28,6 +68,9 @@ def build_namespace(input_paths: list[str]) -> str:
     """
     Build namespace from input file paths
 
+    Note: No validation here - auto-generated namespaces always contain +
+    Validation happens at build_cluster_path() which is the final path assembly
+
     Args:
         input_paths: List of HDF5 file paths
 
@@ -45,7 +88,10 @@ def build_namespace(input_paths: list[str]) -> str:
 
 
 def build_cluster_path(
-    model_name: str, namespace: str = "default", filters: list[list[int]] | None = None, dataset: str = "clusters"
+    model_name: str,
+    namespace: str = "default",
+    filters: list[list[int]] | None = None,
+    dataset: str = "clusters",
 ) -> str:
     """
     Build HDF5 path for clustering data
@@ -58,6 +104,9 @@ def build_cluster_path(
 
     Returns:
         Full HDF5 path
+
+    Raises:
+        ValueError: If namespace is invalid or reserved
 
     Examples:
         >>> build_cluster_path("uni", "default")
@@ -72,6 +121,13 @@ def build_cluster_path(
         >>> build_cluster_path("uni", "001+002", [[5]])
         'uni/001+002/filter/5/clusters'
     """
+    # Validate namespace
+    if not validate_namespace(namespace):
+        raise ValueError(
+            f"Invalid namespace '{namespace}'. "
+            f"Reserved names: {', '.join(sorted(RESERVED_NAMESPACES))}"
+        )
+
     path = f"{model_name}/{namespace}"
 
     if filters:

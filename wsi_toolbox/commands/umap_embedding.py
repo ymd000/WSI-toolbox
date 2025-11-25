@@ -92,6 +92,8 @@ class UmapCommand:
         # Determine namespace
         if self.namespace is None:
             self.namespace = build_namespace(hdf5_paths)
+        elif "+" in self.namespace:
+            raise ValueError("Namespace cannot contain '+' (reserved for multi-file auto-generated namespaces)")
 
         # Build target path
         target_path = build_cluster_path(
