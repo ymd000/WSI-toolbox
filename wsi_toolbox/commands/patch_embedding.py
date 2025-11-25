@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from pydantic import BaseModel
 
-from ..models import create_model
+from ..common import create_default_model
 from ..utils import safe_del
 from . import _get, _progress, get_config
 
@@ -83,8 +83,8 @@ class PatchEmbeddingCommand:
         Returns:
             PatchEmbeddingResult: Result metadata (feature_dim, patch_count, skipped, etc.)
         """
-        # Load model
-        model = create_model(self.model_name)
+        # Load model (uses globally registered model generator)
+        model = create_default_model()
         model = model.eval().to(self.device)
 
         # Normalization parameters

@@ -17,9 +17,9 @@ Basic Usage:
     >>> emb_cmd = wt.PatchEmbeddingCommand(batch_size=256)
     >>> emb_result = emb_cmd('output.h5')
     >>>
-    >>> # Or use custom model
-    >>> custom_model = wt.create_model('uni')
-    >>> wt.set_default_model(custom_model, name='my_uni', label='My UNI')
+    >>> # Or use custom model generator
+    >>> wt.set_default_model('my_model', lambda: MyCustomModel(), label='My Model')
+    >>> model = wt.create_default_model()  # Creates fresh instance
     >>>
     >>> # Clustering
     >>> cluster_cmd = wt.ClusteringCommand(resolution=1.0, use_umap=True)
@@ -52,6 +52,7 @@ from .commands.patch_embedding import PatchEmbeddingResult
 # Command result types
 from .commands.wsi import Wsi2HDF5Result
 from .common import (
+    create_default_model,
     get_config,
     set_default_device,
     set_default_model,
@@ -63,7 +64,7 @@ from .common import (
 # Models
 from .models import (
     MODEL_LABELS,
-    create_model,
+    create_foundation_model,
 )
 
 # Utility functions
@@ -86,6 +87,7 @@ __all__ = [
     "set_default_progress",
     "set_default_model",
     "set_default_model_preset",
+    "create_default_model",
     "set_default_device",
     "set_verbose",
     # Commands
@@ -109,8 +111,7 @@ __all__ = [
     "create_wsi_file",
     # Models
     "MODEL_LABELS",
-    "create_model",
+    "create_foundation_model",
     # Utilities
-    "plot_umap",
     "leiden_cluster",
 ]

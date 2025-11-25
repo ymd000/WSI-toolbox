@@ -2,10 +2,13 @@
 Global configuration and settings for WSI-toolbox
 """
 
+from functools import partial
+from typing import Callable
+
 from matplotlib import pyplot as plt
 from pydantic import BaseModel, Field
 
-from .models import MODEL_LABELS
+from .models import MODEL_LABELS, create_foundation_model
 from .utils.progress import Progress
 
 
@@ -16,7 +19,7 @@ class Config(BaseModel):
     progress: str = Field(default="tqdm", description="Progress bar backend")
     model_name: str = Field(default="uni", description="Default model name")
     model_label: str | None = Field(default=None, description="Model display label")
-    model_instance: object | None = Field(default=None, description="Custom model instance")
+    model_generator: Callable | None = Field(default=None, description="Model generator function")
     verbose: bool = Field(default=True, description="Verbose output")
     device: str = Field(default="cuda", description="Device for computation")
     cluster_cmap: str = Field(default="tab20", description="Cluster colormap name")
@@ -39,16 +42,20 @@ def set_default_progress(backend: str):
     _config.progress = backend
 
 
-def set_default_model(model, name: str, label: str | None = None):
-    """Set custom model as default
+def set_default_model(name: str, generator: Callable, label: str | None = None):
+    """Set custom model generator as default
 
     Args:
-        model: Model object (torch.nn.Module)
         name: Model name (used for file paths, etc.)
+        generator: Callable that returns a model instance (e.g., lambda: MyModel())
         label: Display label (defaults to name if not provided)
+
+    Example:
+        >>> set_default_model('resnet', lambda: torchvision.models.resnet50())
+        >>> set_default_model('custom', create_my_model, label='My Custom Model')
     """
-    _config.model_instance = model
     _config.model_name = name
+    _config.model_generator = generator
     _config.model_label = label if label is not None else name
 
 
@@ -61,9 +68,27 @@ def set_default_model_preset(preset_name: str):
     if preset_name not in MODEL_LABELS:
         raise ValueError(f"Invalid preset: {preset_name}. Must be one of {list(MODEL_LABELS.keys())}")
 
-    _config.model_instance = None  # Clear custom model
     _config.model_name = preset_name
     _config.model_label = MODEL_LABELS[preset_name]
+    _config.model_generator = partial(create_foundation_model, preset_name)
+
+
+def create_default_model():
+    """Create a new model instance using the registered generator.
+
+    Returns:
+        torch.nn.Module: Fresh model instance
+
+    Raises:
+        RuntimeError: If no model generator is registered
+
+    Example:
+        >>> set_default_model_preset('uni')
+        >>> model = create_default_model()  # Creates new UNI model instance
+    """
+    if _config.model_generator is None:
+        raise RuntimeError("No model generator registered. Call set_default_model() or set_default_model_preset() first.")
+    return _config.model_generator()
 
 
 def set_default_device(device: str):
@@ -114,6 +139,7 @@ __all__ = [
     "set_default_progress",
     "set_default_model",
     "set_default_model_preset",
+    "create_default_model",
     "set_default_device",
     "set_verbose",
     "set_default_cluster_cmap",
