@@ -3,7 +3,6 @@ Plotting utilities for 2D scatter plots and 1D violin plots
 """
 
 import numpy as np
-import seaborn as sns
 from matplotlib import pyplot as plt
 
 from ..common import _get_cluster_color
@@ -194,6 +193,9 @@ def plot_violin_1d(
         raise ValueError("No data for specified clusters")
 
     # Create plot
+    # Lazy import: seaborn is slow to load (~500ms), defer until needed
+    import seaborn as sns  # noqa: PLC0415
+
     fig = plt.figure(figsize=figsize)
     sns.set_style("whitegrid")
     ax = plt.subplot(111)

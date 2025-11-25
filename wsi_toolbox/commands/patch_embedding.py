@@ -6,7 +6,6 @@ import gc
 
 import h5py
 import numpy as np
-import torch
 from pydantic import BaseModel
 
 from ..common import create_default_model
@@ -83,6 +82,9 @@ class PatchEmbeddingCommand:
         Returns:
             PatchEmbeddingResult: Result metadata (feature_dim, patch_count, skipped, etc.)
         """
+        # Lazy import: torch is slow to load (~800ms), defer until needed
+        import torch  # noqa: PLC0415
+
         # Load model (uses globally registered model generator)
         model = create_default_model()
         model = model.eval().to(self.device)

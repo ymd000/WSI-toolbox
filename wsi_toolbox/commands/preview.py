@@ -7,8 +7,6 @@ import numpy as np
 from matplotlib import colors as mcolors
 from matplotlib import pyplot as plt
 from PIL import Image, ImageFont
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import MinMaxScaler
 
 from ..utils import create_frame, get_platform_font
 from ..utils.hdf5_paths import build_cluster_path
@@ -277,6 +275,10 @@ class PreviewLatentPCACommand(BasePreviewCommand):
         Returns:
             dict with 'overlays' and 'alpha_mask'
         """
+        # Lazy import: sklearn is slow to load (~600ms), defer until needed
+        from sklearn.decomposition import PCA  # noqa: PLC0415
+        from sklearn.preprocessing import MinMaxScaler  # noqa: PLC0415
+
         # Load latent features
         h = f[f"{self.model_name}/latent_features"][()]  # B, L(16x16), EMB(1024)
         h = h.astype(np.float32)

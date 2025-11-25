@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 import h5py
 import numpy as np
-from sklearn.preprocessing import StandardScaler
 
 from ..utils.hdf5_paths import build_cluster_path
 
@@ -129,6 +128,9 @@ class MultipleContext:
                 data_list.append(data)
 
         # Concatenate and normalize
+        # Lazy import: sklearn is slow to load (~600ms), defer until needed
+        from sklearn.preprocessing import StandardScaler  # noqa: PLC0415
+
         data = np.concatenate(data_list)
         self._total_count = len(data)
 

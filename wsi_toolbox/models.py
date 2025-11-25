@@ -1,7 +1,3 @@
-import timm
-import torch
-from timm.layers import SwiGLUPacked
-
 MODEL_LABELS = {
     "uni": "UNI",
     "gigapath": "Prov-Gigapath",
@@ -25,6 +21,11 @@ def create_foundation_model(model_name: str):
     Returns:
         torch.nn.Module: Model instance (not moved to device, not in eval mode)
     """
+    # Lazy import: timm/torch are slow to load (~2s), defer until model creation
+    import timm  # noqa: PLC0415
+    import torch  # noqa: PLC0415
+    from timm.layers import SwiGLUPacked  # noqa: PLC0415
+
     if model_name == "uni":
         return timm.create_model("hf-hub:MahmoodLab/uni", pretrained=True, dynamic_img_size=True, init_values=1e-5)
 

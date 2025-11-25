@@ -5,8 +5,6 @@ PCA scoring command for feature analysis
 import h5py
 import numpy as np
 from pydantic import BaseModel
-from sklearn.decomposition import PCA
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from ..utils.hdf5_paths import build_cluster_path, build_namespace, ensure_groups
 from . import _get, _progress, get_config
@@ -166,6 +164,10 @@ class PCACommand:
 
     def _compute_pca(self, features: np.ndarray) -> np.ndarray:
         """Compute PCA and apply scaling"""
+        # Lazy import: sklearn is slow to load (~600ms), defer until needed
+        from sklearn.decomposition import PCA  # noqa: PLC0415
+        from sklearn.preprocessing import MinMaxScaler, StandardScaler  # noqa: PLC0415
+
         pca = PCA(n_components=self.n_components)
         pca_values = pca.fit_transform(features)
 

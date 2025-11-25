@@ -29,6 +29,7 @@ from .preview import (
     PreviewLatentPCACommand,
     PreviewScoresCommand,
 )
+from .show import ShowCommand
 from .umap_embedding import UmapCommand
 
 # Import and export all commands
@@ -61,4 +62,5 @@ __all__ = [
     "PreviewLatentPCACommand",
     "PreviewLatentClusterCommand",
     "DziCommand",
+    "ShowCommand",
 ]

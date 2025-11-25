@@ -1,16 +1,13 @@
 import multiprocessing
 from typing import Callable
 
-import igraph as ig
-import leidenalg as la
-import networkx as nx
 import numpy as np
-from joblib import Parallel, delayed
-from sklearn.decomposition import PCA
-from sklearn.neighbors import NearestNeighbors
 
 
 def find_optimal_components(features, threshold=0.95):
+    # Lazy import: sklearn is slow to load (~600ms), defer until needed
+    from sklearn.decomposition import PCA  # noqa: PLC0415
+
     pca = PCA()
     pca.fit(features)
     explained_variance = pca.explained_variance_ratio_
@@ -63,6 +60,14 @@ def leiden_cluster(
     Returns:
         np.ndarray: Cluster labels for each sample
     """
+    # Lazy import: sklearn/igraph/networkx are slow to load, defer until needed
+    import igraph as ig  # noqa: PLC0415
+    import leidenalg as la  # noqa: PLC0415
+    import networkx as nx  # noqa: PLC0415
+    from joblib import Parallel, delayed  # noqa: PLC0415
+    from sklearn.decomposition import PCA  # noqa: PLC0415
+    from sklearn.neighbors import NearestNeighbors  # noqa: PLC0415
+
     if n_jobs < 0:
         n_jobs = multiprocessing.cpu_count()
     n_samples = features.shape[0]

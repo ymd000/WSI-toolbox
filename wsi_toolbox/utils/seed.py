@@ -1,7 +1,6 @@
 import random
 
 import numpy as np
-import torch
 
 __GLOBAL_SEED = 42
 
@@ -11,6 +10,9 @@ def get_global_seed():
 
 
 def fix_global_seed(seed=None):
+    # Lazy import: torch is slow to load (~800ms), defer until needed
+    import torch  # noqa: PLC0415
+
     if seed is None:
         seed = get_global_seed()
     global __GLOBAL_SEED

@@ -82,7 +82,7 @@ class UmapCommand:
 
     def __call__(self, hdf5_paths: str | list[str]) -> UmapResult:
         """Execute UMAP embedding"""
-        import umap  # Heavy import - lazy load only when needed
+        import umap  # noqa: PLC0415 - lazy load, umap is slow to import
 
         # Normalize to list
         if isinstance(hdf5_paths, str):
