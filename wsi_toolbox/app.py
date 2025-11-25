@@ -434,8 +434,8 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
     st.write(f"分割したパッチをHDF5に保存し、{model_label}特徴量抽出を実行します。それぞれ5分、20分程度かかります。")
 
     do_clustering = st.checkbox("クラスタリングも実行する", value=True, disabled=st.session_state.locked)
-    rotate = st.checkbox(
-        "画像を回転させる（WSIファイルのビュアーの画面から回転された状態で処理します）",
+    rotate_preview = st.checkbox(
+        "プレビュー時に回転させる（顕微鏡視野にあわせる）",
         value=True,
         disabled=st.session_state.locked,
     )
@@ -465,7 +465,7 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
                 else:
                     with st.spinner("WSIを分割しHDF5ファイルを構成しています...", show_time=True):
                         # Use new command pattern
-                        cmd = commands.Wsi2HDF5Command(patch_size=PATCH_SIZE, rotate=rotate)
+                        cmd = commands.Wsi2HDF5Command(patch_size=PATCH_SIZE)
                         _ = cmd(wsi_path, hdf5_tmp_path)
                     os.rename(hdf5_tmp_path, hdf5_path)
                     st.write("HDF5ファイルに変換完了。")
@@ -495,20 +495,28 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
                         # Compute UMAP first
                         commands.set_default_model_preset(st.session_state.model)
                         umap_cmd = commands.UmapCommand()
-                        _ = umap_cmd([hdf5_path])
+                        umap_result = umap_cmd([hdf5_path])
 
                     with st.spinner("クラスタリング中...", show_time=True):
                         # Cluster using features
                         cluster_cmd = commands.ClusteringCommand(
                             resolution=DEFAULT_CLUSTER_RESOLUTION, namespace="default", source="features"
                         )
-                        _ = cluster_cmd([hdf5_path])
+                        cluster_result = cluster_cmd([hdf5_path])
 
-                        # Plot UMAP
-                        umap_embs = umap_cmd.get_embeddings()
+                        # Load UMAP embeddings and clusters from HDF5
+                        # (handles both fresh computation and skipped cases)
+                        with h5py.File(hdf5_path, "r") as hf:
+                            umap_embs = hf[umap_result.target_path][:]
+                            clusters = hf[cluster_result.target_path][:]
+                            # Filter valid (non-NaN for umap, >=0 for clusters)
+                            valid_mask = ~np.isnan(umap_embs[:, 0]) & (clusters >= 0)
+                            umap_embs = umap_embs[valid_mask]
+                            clusters = clusters[valid_mask]
+
                         fig = plot_scatter_2d(
                             [umap_embs],
-                            [cluster_cmd.clusters],
+                            [clusters],
                             [P(hdf5_path).stem],
                             title="UMAP Projection",
                             xlabel="UMAP 1",
@@ -520,7 +528,7 @@ def render_mode_wsi(files: List[FileEntry], selected_files: List[FileEntry]):
                     with st.spinner("オーバービュー生成中", show_time=True):
                         # Use new command pattern
                         commands.set_default_model_preset(st.session_state.model)
-                        preview_cmd = commands.PreviewClustersCommand(size=THUMBNAIL_SIZE)
+                        preview_cmd = commands.PreviewClustersCommand(size=THUMBNAIL_SIZE, rotate=rotate_preview)
                         img = preview_cmd(hdf5_path, namespace="default")
                         img.save(thumb_path)
                     st.write(f"オーバービューを{os.path.basename(thumb_path)}に出力しました。")
@@ -589,18 +597,23 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
         disabled=st.session_state.locked,
         help="features: 特徴量ベース（推奨）, umap: UMAP座標ベース（事前にUMAP計算が必要）",
     )
+    rotate_preview = form.checkbox(
+        "プレビュー時に回転させる（顕微鏡視野にあわせる）",
+        value=True,
+        disabled=st.session_state.locked,
+    )
 
-    cluster_name = ""
+    namespace = ""
     if len(selected_files) > 1:
-        cluster_name = form.text_input(
-            "クラスタ名（"
+        namespace = form.text_input(
+            "名前空間（"
             "複数スライドで同時処理時は、単一時と区別のための名称が必要です。"
             "サブクラスタークラスター解析時は空欄にしてください）",
             disabled=st.session_state.locked,
             value="",
-            placeholder="半角英数字でクラスタ名を入力してください",
+            placeholder="半角英数字で名前空間を入力してください",
         )
-        cluster_name = cluster_name.lower()
+        namespace = namespace.lower()
 
     available_cluster_name = []
     if len(selected_files) == 1:
@@ -620,13 +633,13 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
         subcluster_targets_map = {}
         subcluster_targets = []
         for f in selected_files:
-            for cluster_name in available_cluster_name:
-                cluster_ids = f.detail.cluster_ids_by_name[cluster_name]
+            for ns_name in available_cluster_name:
+                cluster_ids = f.detail.cluster_ids_by_name[ns_name]
                 for i in cluster_ids:
-                    v = f"{cluster_name} - {i}"
+                    v = f"{ns_name} - {i}"
                     if v not in subcluster_targets:
                         subcluster_targets.append(v)
-                        subcluster_targets_map[v] = [cluster_name, i]
+                        subcluster_targets_map[v] = [ns_name, i]
 
         subcluster_targets_result = form.multiselect(
             "サブクラスター対象", subcluster_targets, disabled=st.session_state.locked
@@ -648,8 +661,8 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
     if form.form_submit_button("クラスタリングを実行", disabled=st.session_state.locked, on_click=lock):
         set_locked_state(True)
 
-        if len(selected_files) > 1 and not re.match(r"[a-z0-9]+", cluster_name):
-            st.error("クラスタ名は小文字半角英数記号のみ入力してください")
+        if len(selected_files) > 1 and not re.match(r"[a-z0-9]+", namespace):
+            st.error("名前空間は小文字半角英数記号のみ入力してください")
             st.render_reset_button()
             return
 
@@ -670,16 +683,16 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
         t = "と".join([f.name for f in selected_files])
         with st.spinner(f"{t}のUMAP計算中...", show_time=True):
             umap_cmd = commands.UmapCommand(
-                namespace=cluster_name if cluster_name else None,
+                namespace=namespace if namespace else None,
                 parent_filters=[subcluster_filter] if subcluster_filter else [],
                 overwrite=overwrite,
             )
-            _ = umap_cmd([f.path for f in selected_files])
+            umap_result = umap_cmd([f.path for f in selected_files])
 
         # Clustering
         cluster_cmd = commands.ClusteringCommand(
             resolution=resolution,
-            namespace=cluster_name if cluster_name else None,
+            namespace=namespace if namespace else None,
             parent_filters=[subcluster_filter] if subcluster_filter else [],
             source=source,
             overwrite=overwrite,
@@ -688,21 +701,30 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
         with st.spinner(f"{t}をクラスタリング中...", show_time=True):
             p = P(selected_files[0].path)
             if len(selected_files) > 1:
-                base = cluster_name
+                base = namespace
             else:
                 base = p.stem
             if subcluster_filter:
                 base += f"_{subcluster_label}"
             umap_path = str(p.parent / f"{base}_umap.png")
 
-            _ = cluster_cmd([f.path for f in selected_files])
+            cluster_result = cluster_cmd([f.path for f in selected_files])
 
-            # Plot UMAP
-            umap_embs = umap_cmd.get_embeddings()
+            # Load UMAP embeddings and clusters from HDF5
+            # (handles both fresh computation and skipped cases)
+            with h5py.File(selected_files[0].path, "r") as hf:
+                umap_embs = hf[umap_result.target_path][:]
+                clusters = hf[cluster_result.target_path][:]
+                # Filter valid (non-NaN for umap, >=0 for clusters)
+                valid_mask = ~np.isnan(umap_embs[:, 0]) & (clusters >= 0)
+                umap_embs = umap_embs[valid_mask]
+                clusters = clusters[valid_mask]
+
             filenames = [P(f.path).stem for f in selected_files]
+
             fig = plot_scatter_2d(
                 [umap_embs],
-                [cluster_cmd.clusters],
+                [clusters],
                 filenames,
                 title="UMAP Projection",
                 xlabel="UMAP 1",
@@ -721,11 +743,11 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
             for f in selected_files:
                 # Use new command pattern
                 commands.set_default_model_preset(st.session_state.model)
-                preview_cmd = commands.PreviewClustersCommand(size=THUMBNAIL_SIZE)
+                preview_cmd = commands.PreviewClustersCommand(size=THUMBNAIL_SIZE, rotate=rotate_preview)
 
                 p = P(f.path)
                 if len(selected_files) > 1:
-                    base = f"{cluster_name}_{p.stem}"
+                    base = f"{namespace}_{p.stem}"
                 else:
                     base = p.stem
                 if subcluster_filter:
@@ -733,7 +755,7 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
                 thumb_path = str(p.parent / f"{base}_thumb.jpg")
 
                 # Determine namespace and filter_path for preview
-                ns = cluster_name if cluster_name else "default"
+                ns = namespace if namespace else "default"
                 if subcluster_filter:
                     filter_path = "+".join(map(str, subcluster_filter))
                 else:
