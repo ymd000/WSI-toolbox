@@ -46,7 +46,7 @@ class Wsi2HDF5Command:
         patch_size: int = 256,
         engine: str = "auto",
         mpp: float = 0,
-        rotate: bool = True,
+        rotate: bool = False,
         white_detector: Callable[[np.ndarray], bool] = None,
     ):
         """
