@@ -79,11 +79,8 @@ class CLI(AutoCLI):
         Raises:
             ValueError: If arguments are invalid
         """
-        if not detect_white:
+        if not detect_white or len(detect_white) == 0:
             # Default: ptp with default threshold
-            return ("ptp", None)
-
-        if len(detect_white) == 0:
             return ("ptp", None)
 
         method = detect_white[0]
