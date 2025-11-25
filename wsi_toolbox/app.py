@@ -12,7 +12,7 @@ import pandas as pd
 import torch
 from PIL import Image
 from pydantic import BaseModel
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
 torch.classes.__path__ = []
 import streamlit as st
@@ -414,8 +414,7 @@ def render_file_list(files: List[FileEntry]) -> List[FileEntry]:
         allow_unsafe_jscode=True,
         theme="streamlit",
         enable_enterprise_modules=False,
-        update_mode=GridUpdateMode.SELECTION_CHANGED,
-        reload_data=True,
+        update_on=["selectionChanged"],
     )
 
     selected_rows = grid_response["selected_rows"]
@@ -575,7 +574,7 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
             "cluster_ids_by_name": None,
         },
         hide_index=True,
-        use_container_width=False,
+        width="content",
     )
 
     form = st.form(key="form_hdf5")
