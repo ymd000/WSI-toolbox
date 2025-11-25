@@ -160,6 +160,22 @@ def render_reset_button():
         st.rerun()
 
 
+def build_output_path(input_path: str, namespace: str, filename: str) -> str:
+    """
+    Build output path based on namespace.
+
+    - namespace="default": save in same directory as input file
+    - namespace=other: save in namespace subdirectory (created if needed)
+    """
+    p = P(input_path)
+    if namespace == "default":
+        output_dir = p.parent
+    else:
+        output_dir = p.parent / namespace
+        os.makedirs(output_dir, exist_ok=True)
+    return str(output_dir / filename)
+
+
 def render_navigation(current_dir_abs, default_root_abs):
     """Render navigation buttons for moving between directories."""
     with st_horizontal():
@@ -613,17 +629,19 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
         disabled=st.session_state.locked,
     )
 
-    namespace = ""
+    # 名前空間（単一ファイル: default, 複数ファイル: xx+yy+... がデフォルト）
+    from .utils.hdf5_paths import build_namespace
+    default_namespace = build_namespace([f.path for f in selected_files])
+    namespace = default_namespace
     if len(selected_files) > 1:
         namespace = form.text_input(
-            "名前空間（"
-            "複数スライドで同時処理時は、単一時と区別のための名称が必要です。"
-            "サブクラスタークラスター解析時は空欄にしてください）",
+            "名前空間",
             disabled=st.session_state.locked,
-            value="",
-            placeholder="半角英数字で名前空間を入力してください",
+            value=default_namespace,
+            help="複数スライド処理時の識別名。空欄の場合は自動生成されます。",
         )
-        namespace = namespace.lower()
+        if not namespace:
+            namespace = default_namespace
 
     available_cluster_name = []
     if len(selected_files) == 1:
@@ -666,15 +684,18 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
                 render_reset_button()
                 return
             subcluster_name = subcluster_names[0]
-            subcluster_label = "sub" + "-".join([str(i) for i in subcluster_filter])
+            subcluster_filter = sorted(subcluster_filter)
+            subcluster_label = "+".join([str(i) for i in subcluster_filter])
 
     if form.form_submit_button("クラスタリングを実行", disabled=st.session_state.locked, on_click=lock):
         set_locked_state(True)
 
-        if len(selected_files) > 1 and not re.match(r"[a-z0-9]+", namespace):
-            st.error("名前空間は小文字半角英数記号のみ入力してください")
-            st.render_reset_button()
-            return
+        if len(selected_files) > 1 and namespace != default_namespace:
+            # ユーザーが変更した場合は半角英数のみ
+            if not re.match(r"^[a-z0-9]+$", namespace):
+                st.error("名前空間は小文字半角英数字のみ入力してください")
+                render_reset_button()
+                return
 
         for f in selected_files:
             if not f.detail or not f.detail.has_features:
@@ -690,10 +711,12 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
         commands.set_default_model_preset(st.session_state.model)
 
         # Compute UMAP if needed
+        # namespace=None lets the command auto-generate if it contains '+'
+        cmd_namespace = None if namespace == default_namespace else namespace
         t = "と".join([f.name for f in selected_files])
         with st.spinner(f"{t}のUMAP計算中...", show_time=True):
             umap_cmd = commands.UmapCommand(
-                namespace=namespace if namespace else None,
+                namespace=cmd_namespace,
                 parent_filters=[subcluster_filter] if subcluster_filter else [],
                 overwrite=overwrite,
             )
@@ -702,21 +725,17 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
         # Clustering
         cluster_cmd = commands.ClusteringCommand(
             resolution=resolution,
-            namespace=namespace if namespace else None,
+            namespace=cmd_namespace,
             parent_filters=[subcluster_filter] if subcluster_filter else [],
             source=source,
             overwrite=overwrite,
         )
 
         with st.spinner(f"{t}をクラスタリング中...", show_time=True):
-            p = P(selected_files[0].path)
-            if len(selected_files) > 1:
-                base = namespace
-            else:
-                base = p.stem
-            if subcluster_filter:
-                base += f"_{subcluster_label}"
-            umap_path = str(p.parent / f"{base}_umap.png")
+            # 単品: xx_umap.png, 複数: xx+yy/_umap.png
+            base = P(selected_files[0].path).stem if namespace == "default" else ""
+            suffix = f"_{subcluster_label}" if subcluster_filter else ""
+            umap_path = build_output_path(selected_files[0].path, namespace, f"{base}{suffix}_umap.png")
 
             cluster_result = cluster_cmd([f.path for f in selected_files])
 
@@ -756,13 +775,10 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
                 preview_cmd = commands.PreviewClustersCommand(size=THUMBNAIL_SIZE, rotate=rotate_preview)
 
                 p = P(f.path)
-                if len(selected_files) > 1:
-                    base = f"{namespace}_{p.stem}"
-                else:
-                    base = p.stem
+                base = p.stem
                 if subcluster_filter:
                     base += f"_{subcluster_label}"
-                thumb_path = str(p.parent / f"{base}_thumb.jpg")
+                thumb_path = build_output_path(f.path, namespace, f"{base}_thumb.jpg")
 
                 # Determine namespace and filter_path for preview
                 ns = namespace if namespace else "default"
