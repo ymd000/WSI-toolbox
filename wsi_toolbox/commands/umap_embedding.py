@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from ..utils.hdf5_paths import build_cluster_path, build_namespace, ensure_groups
 from . import _get, _progress, get_config
-from .data_loader import DataLoader
+from .data_loader import MultipleContext
 
 
 class UmapResult(BaseModel):
@@ -28,15 +28,15 @@ class UmapCommand:
     Usage:
         # Basic UMAP
         cmd = UmapCommand()
-        result = cmd('data.h5')  # → uni/default/umap_coordinates
+        result = cmd('data.h5')  # → uni/default/umap
 
         # Multi-file UMAP
         cmd = UmapCommand()
-        result = cmd(['001.h5', '002.h5'])  # → uni/001+002/umap_coordinates
+        result = cmd(['001.h5', '002.h5'])  # → uni/001+002/umap
 
         # UMAP for filtered data
         cmd = UmapCommand(parent_filters=[[1,2,3]])
-        result = cmd('data.h5')  # → uni/default/filter/1+2+3/umap_coordinates
+        result = cmd('data.h5')  # → uni/default/filter/1+2+3/umap
     """
 
     def __init__(
@@ -97,7 +97,7 @@ class UmapCommand:
 
         # Build target path
         target_path = build_cluster_path(
-            self.model_name, self.namespace, filters=self.parent_filters, dataset="umap_coordinates"
+            self.model_name, self.namespace, filters=self.parent_filters, dataset="umap"
         )
 
         # Check if already exists
@@ -120,8 +120,8 @@ class UmapCommand:
         with _progress(total=3, desc="UMAP") as pbar:
             # Load features
             pbar.set_description("Loading features")
-            loader = DataLoader(hdf5_paths, self.model_name, self.namespace, self.parent_filters)
-            features, masks = loader.load_features(source="features")
+            ctx = MultipleContext(hdf5_paths, self.model_name, self.namespace, self.parent_filters)
+            features = ctx.load_features(source="features")
             pbar.update(1)
 
             # Compute UMAP
@@ -137,7 +137,7 @@ class UmapCommand:
 
             # Write results
             pbar.set_description("Writing results")
-            self._write_results(target_path, masks)
+            self._write_results(ctx, target_path)
             pbar.update(1)
 
         # Verbose output after progress bar closes
@@ -149,36 +149,27 @@ class UmapCommand:
             n_samples=len(features), n_components=self.n_components, namespace=self.namespace, target_path=target_path
         )
 
-    def _write_results(self, target_path: str, masks: list[np.ndarray]):
+    def _write_results(self, ctx: MultipleContext, target_path: str):
         """Write UMAP coordinates to HDF5 files"""
-        cursor = 0
-        for hdf5_path, mask in zip(self.hdf5_paths, masks):
-            count = np.sum(mask)
+        for file_slice in ctx:
+            umap_coords = file_slice.slice(self.umap_embeddings)
 
-            with h5py.File(hdf5_path, "a") as f:
-                # Ensure parent groups exist
+            with h5py.File(file_slice.hdf5_path, "a") as f:
                 ensure_groups(f, target_path)
 
-                # Delete if exists
                 if target_path in f:
                     del f[target_path]
 
-                # Get UMAP coordinates for this file's patches
-                umap_coords = self.umap_embeddings[cursor : cursor + count]
-
                 # Fill with NaN for filtered patches
-                full_umap = np.full((len(mask), self.n_components), np.nan, dtype=umap_coords.dtype)
-                full_umap[mask] = umap_coords
+                full_umap = np.full((len(file_slice.mask), self.n_components), np.nan, dtype=umap_coords.dtype)
+                full_umap[file_slice.mask] = umap_coords
 
-                # Create dataset with metadata
                 ds = f.create_dataset(target_path, data=full_umap)
                 ds.attrs["n_components"] = self.n_components
                 ds.attrs["n_neighbors"] = self.n_neighbors
                 ds.attrs["min_dist"] = self.min_dist
                 ds.attrs["metric"] = self.metric
                 ds.attrs["model"] = self.model_name
-
-            cursor += count
 
     def get_embeddings(self):
         """Get computed UMAP embeddings"""

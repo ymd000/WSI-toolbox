@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from ..utils.analysis import leiden_cluster
 from ..utils.hdf5_paths import build_cluster_path, build_namespace, ensure_groups
 from . import _get, _progress, get_config
-from .data_loader import DataLoader
+from .data_loader import MultipleContext
 
 
 class ClusteringResult(BaseModel):
@@ -50,7 +50,7 @@ class ClusteringCommand:
 
         # UMAP-based clustering
         cmd = ClusteringCommand(source="umap")
-        result = cmd('data.h5')  # → uses uni/default/umap_coordinates
+        result = cmd('data.h5')  # → uses uni/default/umap
     """
 
     def __init__(
@@ -134,8 +134,8 @@ class ClusteringCommand:
         with _progress(total=7, desc="Clustering") as pbar:
             # Load data
             pbar.set_description("Loading data")
-            loader = DataLoader(hdf5_paths, self.model_name, self.namespace, self.parent_filters)
-            data, masks = loader.load_features(source=self.source)
+            ctx = MultipleContext(hdf5_paths, self.model_name, self.namespace, self.parent_filters)
+            data = ctx.load_features(source=self.source)
             pbar.update(1)
 
             # Perform clustering using analysis module
@@ -152,7 +152,7 @@ class ClusteringCommand:
 
             # Write results
             pbar.set_description("Writing results")
-            self._write_results(target_path, masks)
+            self._write_results(ctx, target_path)
             pbar.update(1)
 
         # Verbose output after progress bar closes
@@ -163,30 +163,23 @@ class ClusteringCommand:
 
         return ClusteringResult(cluster_count=cluster_count, feature_count=len(data), target_path=target_path)
 
-    def _write_results(self, target_path: str, masks: list[np.ndarray]):
+    def _write_results(self, ctx: MultipleContext, target_path: str):
         """Write clustering results to HDF5 files"""
-        cursor = 0
-        for hdf5_path, mask in zip(self.hdf5_paths, masks):
-            count = np.sum(mask)
-            clusters = self.clusters[cursor : cursor + count]
+        for file_slice in ctx:
+            clusters = file_slice.slice(self.clusters)
 
-            with h5py.File(hdf5_path, "a") as f:
-                # Ensure parent groups exist
+            with h5py.File(file_slice.hdf5_path, "a") as f:
                 ensure_groups(f, target_path)
 
-                # Delete if exists
                 if target_path in f:
                     del f[target_path]
 
                 # Fill with -1 for filtered patches
-                full_clusters = np.full(len(mask), -1, dtype=clusters.dtype)
-                full_clusters[mask] = clusters
+                full_clusters = np.full(len(file_slice.mask), -1, dtype=clusters.dtype)
+                full_clusters[file_slice.mask] = clusters
 
-                # Create dataset with metadata attributes
                 ds = f.create_dataset(target_path, data=full_clusters)
                 ds.attrs["resolution"] = self.resolution
                 ds.attrs["source"] = self.source
                 ds.attrs["model"] = self.model_name
-
-            cursor += count
 

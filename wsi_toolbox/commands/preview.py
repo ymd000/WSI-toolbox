@@ -199,6 +199,7 @@ class PreviewScoresCommand(BasePreviewCommand):
         namespace: str = "default",
         filter_path: str = "",
         cmap_name: str = "viridis",
+        invert: bool = False,
     ):
         """
         Prepare PCA visualization data
@@ -209,6 +210,7 @@ class PreviewScoresCommand(BasePreviewCommand):
             namespace: Namespace (e.g., "default", "001+002")
             filter_path: Filter path (e.g., "1+2+3" or "1+2+3/0+1")
             cmap_name: Colormap name
+            invert: Invert scores (1 - score)
 
         Returns:
             dict with 'scores', 'cmap', and 'font'
@@ -233,6 +235,10 @@ class PreviewScoresCommand(BasePreviewCommand):
         # Handle multi-dimensional scores (take first component)
         if scores.ndim > 1:
             scores = scores[:, 0]
+
+        # Invert scores if requested
+        if invert:
+            scores = 1 - scores
 
         # Prepare font and colormap
         font = ImageFont.truetype(font=get_platform_font(), size=self.font_size)
