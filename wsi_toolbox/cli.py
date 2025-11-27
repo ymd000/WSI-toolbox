@@ -555,7 +555,7 @@ class CLI(AutoCLI):
         if a.open:
             os.system(f"xdg-open {output_path}")
 
-    class PreviewPcaArgs(CommonArgs):
+    class PreviewScoreArgs(CommonArgs):
         input_path: str = Field(..., l="--in", s="-i")
         output_path: str = Field("", l="--out", s="-o")
         score_name: str = Field(..., l="--name", s="-n", description="Score name (e.g., 'pca1', 'pca2')")
@@ -567,7 +567,7 @@ class CLI(AutoCLI):
         rotate: bool = False
         open: bool = False
 
-    def run_preview_pca(self, a):
+    def run_preview_score(self, a):
         output_path = a.output_path
         filter_str = ""
         if not output_path:

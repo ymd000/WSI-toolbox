@@ -53,7 +53,7 @@ wt pca -i output.h5
 wt preview -i output.h5
 
 # Generate PCA score heatmap preview
-wt preview-pca -i output.h5 -n pca1
+wt preview-score -i output.h5 -n pca1
 
 # Show HDF5 file structure
 wt show -i output.h5

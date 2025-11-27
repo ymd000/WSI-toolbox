@@ -190,7 +190,7 @@ img.save('preview_clusters.jpg')
 
 Generate thumbnail with PCA score heatmap.
 
-**CLI equivalent:** `wt preview-pca`
+**CLI equivalent:** `wt preview-score`
 
 ```python
 import wsi_toolbox as wt
@@ -205,30 +205,6 @@ img = cmd(
     invert=False,
 )
 img.save('preview_pca.jpg')
-```
-
-### PreviewLatentPCACommand
-
-Generate thumbnail with latent feature PCA visualization.
-
-```python
-import wsi_toolbox as wt
-
-cmd = wt.PreviewLatentPCACommand(size=64)
-img = cmd('output.h5', alpha=0.5)
-img.save('preview_latent_pca.jpg')
-```
-
-### PreviewLatentClusterCommand
-
-Generate thumbnail with latent feature cluster visualization.
-
-```python
-import wsi_toolbox as wt
-
-cmd = wt.PreviewLatentClusterCommand(size=64)
-img = cmd('output.h5', alpha=0.5)
-img.save('preview_latent_cluster.jpg')
 ```
 
 ### ShowCommand
