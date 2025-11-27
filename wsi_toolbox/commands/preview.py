@@ -61,7 +61,7 @@ class BasePreviewCommand:
             canvas = Image.new("RGB", (cols * S, rows * S), (0, 0, 0))
 
             # Render all patches (common loop)
-            tq = _progress(range(patch_count))
+            tq = _progress(range(patch_count), desc="Rendering patches")
             for i in tq:
                 coord = f["coordinates"][i]
                 patch_array = f["patches"][i]

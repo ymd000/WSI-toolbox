@@ -28,11 +28,46 @@ def get_platform_font():
     return font_path
 
 
+def relative_luminance(r: float, g: float, b: float) -> float:
+    """
+    Calculate relative luminance per WCAG 2.0 guidelines.
+
+    Args:
+        r, g, b: RGB values in range [0, 1]
+
+    Returns:
+        Relative luminance value (0-1)
+    """
+
+    def linearize(c):
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b)
+
+
+def get_contrast_text_color(hex_color: str) -> str:
+    """
+    Get optimal text color (black or white) for given background color.
+
+    Uses WCAG relative luminance formula for perceptually accurate contrast.
+
+    Args:
+        hex_color: Background color in hex format (e.g., "#FF0000")
+
+    Returns:
+        "black" or "white"
+    """
+    r, g, b = mcolors.hex2color(hex_color)
+    lum = relative_luminance(r, g, b)
+    # WCAG threshold: 0.179 gives 4.5:1 contrast ratio with white
+    return "black" if lum > 0.179 else "white"
+
+
 def create_frame(size, color, text, font):
     frame = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(frame)
     draw.rectangle((0, 0, size, size), outline=color, width=4)
-    text_color = "white" if mcolors.rgb_to_hsv(mcolors.hex2color(color))[2] < 0.9 else "black"
+    text_color = get_contrast_text_color(color)
     bbox = np.array(draw.textbbox((0, 0), text, font=font))
     draw.rectangle((4, 4, bbox[2] + 4, bbox[3] + 4), fill=color)
     draw.text((1, 1), text, font=font, fill=text_color)
