@@ -96,9 +96,7 @@ class UmapCommand:
             raise ValueError("Namespace cannot contain '+' (reserved for multi-file auto-generated namespaces)")
 
         # Build target path
-        target_path = build_cluster_path(
-            self.model_name, self.namespace, filters=self.parent_filters, dataset="umap"
-        )
+        target_path = build_cluster_path(self.model_name, self.namespace, filters=self.parent_filters, dataset="umap")
 
         # Check if already exists
         if not self.overwrite:

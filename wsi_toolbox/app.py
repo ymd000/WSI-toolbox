@@ -640,6 +640,7 @@ def render_mode_hdf5(selected_files: List[FileEntry]):
 
     # 名前空間（単一ファイル: default, 複数ファイル: xx+yy+... がデフォルト）
     from .utils.hdf5_paths import build_namespace
+
     default_namespace = build_namespace([f.path for f in selected_files])
     namespace = default_namespace
     if len(selected_files) > 1:

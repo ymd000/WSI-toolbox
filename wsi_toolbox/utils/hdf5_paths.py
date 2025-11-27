@@ -106,10 +106,7 @@ def build_cluster_path(
     """
     # Validate namespace
     if not validate_namespace(namespace):
-        raise ValueError(
-            f"Invalid namespace '{namespace}'. "
-            f"Reserved names: {', '.join(sorted(RESERVED_NAMESPACES))}"
-        )
+        raise ValueError(f"Invalid namespace '{namespace}'. Reserved names: {', '.join(sorted(RESERVED_NAMESPACES))}")
 
     path = f"{model_name}/{namespace}"
 

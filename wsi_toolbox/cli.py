@@ -54,10 +54,6 @@ common.set_default_model_preset(DEFAULT_MODEL)
 common.set_default_cluster_cmap("tab20")
 
 
-def sigmoid(x):
-    return 1 / (1 + np.exp(-x))
-
-
 class CLI(AutoCLI):
     class CommonArgs(BaseModel):
         seed: int = get_global_seed()
@@ -182,6 +178,7 @@ class CLI(AutoCLI):
         filter_ids: list[int] = Field([], l="--filter", s="-f", description="Filter cluster IDs")
         resolution: float = Field(1.0, description="Clustering resolution")
         source: str = Field("features", choices=["features", "umap"], description="Data source")
+        no_sort: bool = Field(False, l="--no-sort", description="Disable cluster ID reordering by PCA")
         overwrite: bool = Field(False, s="-O")
 
     def run_cluster(self, a: ClusterArgs):
@@ -194,6 +191,7 @@ class CLI(AutoCLI):
             namespace=a.namespace if a.namespace else None,
             parent_filters=parent_filters,
             source=a.source,
+            sort_clusters=not a.no_sort,
             overwrite=a.overwrite,
         )
         result = cmd(a.input_paths)
@@ -212,10 +210,10 @@ class CLI(AutoCLI):
         filter_ids: list[int] = Field([], l="--filter", s="-f", description="Filter cluster IDs")
         n_neighbors: int = Field(15, description="UMAP n_neighbors")
         min_dist: float = Field(0.1, description="UMAP min_dist")
-        overwrite: bool = param(False, s="-O")
-        show: bool = Field(False, description="Show UMAP plot")
-        save: bool = Field(False, description="Save plot to file")
         use_parent_clusters: bool = Field(False, l="--parent", s="-P", description="Use parent clusters for plotting")
+        overwrite: bool = param(False, s="-O")
+        save: bool = Field(False, description="Save plot to file")
+        show: bool = Field(False, description="Show UMAP plot")
 
     def run_umap(self, a: UmapArgs):
         # Build parent_filters if filter_ids specified
@@ -296,6 +294,10 @@ class CLI(AutoCLI):
             print("No valid data to plot.")
             return
 
+        if (not a.save) and (not a.show):
+            # No need to plot
+            return
+
         # Plot
         plot_scatter_2d(
             coords_list,
@@ -308,7 +310,7 @@ class CLI(AutoCLI):
 
         if a.save:
             # Build filename
-            base_name = P(a.input_paths[0]).stem if len(a.input_paths) == 1 else ''
+            base_name = P(a.input_paths[0]).stem if len(a.input_paths) == 1 else ""
             if a.filter_ids:
                 filename = f"{base_name}_{'+'.join(map(str, a.filter_ids))}_umap.png"
             else:
@@ -353,10 +355,6 @@ class CLI(AutoCLI):
         print(f"  Components: {result.n_components}")
         print(f"  Samples:    {result.n_samples}")
         print(f"  Path:       {result.target_path}")
-
-        # Plot if requested (show or save)
-        if not (a.show or a.save):
-            return
 
         # Determine namespace
         namespace = a.namespace if a.namespace else cmd.namespace
@@ -421,6 +419,10 @@ class CLI(AutoCLI):
             print("No valid data to plot.")
             return
 
+        if (not a.save) and (not a.show):
+            # No need to plot
+            return
+
         # Plot based on dimensionality
         if a.n_components == 1:
             # Violin plot for 1D PCA
@@ -443,7 +445,7 @@ class CLI(AutoCLI):
 
         if a.save:
             # Build filename
-            base_name = P(a.input_paths[0]).stem if len(a.input_paths) == 1 else ''
+            base_name = P(a.input_paths[0]).stem if len(a.input_paths) == 1 else ""
             if a.filter_ids:
                 filename = f"{base_name}_{'+'.join(map(str, a.filter_ids))}_pca{a.n_components}.png"
             else:
@@ -453,7 +455,8 @@ class CLI(AutoCLI):
             plt.savefig(fig_path)
             print(f"wrote {fig_path}")
 
-        plt.show()
+        if a.show:
+            plt.show()
 
     class PreviewArgs(CommonArgs):
         input_path: str = Field(..., l="--in", s="-i")

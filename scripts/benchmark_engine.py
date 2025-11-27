@@ -24,14 +24,14 @@ DATA_DIR = SCRIPT_DIR.parent / "data" / "benchmarks"
 # Extension to engines mapping
 # (openslide_supported, tifffile_supported)
 ENGINE_BY_EXT = {
-    ".svs": (True, False),   # SVS: OpenSlide only
-    ".ndpi": (True, True),   # NDPI: both
-    ".tif": (True, True),    # TIFF: both
-    ".tiff": (True, True),   # TIFF: both
+    ".svs": (True, False),  # SVS: OpenSlide only
+    ".ndpi": (True, True),  # NDPI: both
+    ".tif": (True, True),  # TIFF: both
+    ".tiff": (True, True),  # TIFF: both
     ".mrxs": (True, False),  # MIRAX: OpenSlide only
-    ".vms": (True, False),   # Hamamatsu: OpenSlide only
-    ".scn": (True, False),   # Leica: OpenSlide only
-    ".bif": (True, False),   # Ventana: OpenSlide only
+    ".vms": (True, False),  # Hamamatsu: OpenSlide only
+    ".scn": (True, False),  # Leica: OpenSlide only
+    ".bif": (True, False),  # Ventana: OpenSlide only
 }
 
 
@@ -84,11 +84,7 @@ def benchmark_all_tiles(
         level_pbar.set_postfix(level=level, tiles=level_tiles)
 
         # Inner loop: tiles in this level
-        tiles_iter = (
-            (row, col)
-            for row in range(rows)
-            for col in range(cols)
-        )
+        tiles_iter = ((row, col) for row in range(rows) for col in range(cols))
 
         for row, col in tqdm(
             tiles_iter,
@@ -122,9 +118,9 @@ def run_benchmark(iterations: int) -> list[dict]:
             print(f"Skipping {filename}: file not found")
             continue
 
-        print(f"\n{'='*60}")
+        print(f"\n{'=' * 60}")
         print(f"Benchmarking: {filename}")
-        print(f"{'='*60}")
+        print(f"{'=' * 60}")
 
         # OpenSlide benchmark
         if openslide_ok:
@@ -135,24 +131,26 @@ def run_benchmark(iterations: int) -> list[dict]:
                 max_level = wsi.get_dzi_max_level()
                 total_tiles = count_total_tiles(wsi)
 
-                print(f"  Size: {width}x{height}, Levels: {max_level+1}, Tiles: {total_tiles}")
+                print(f"  Size: {width}x{height}, Levels: {max_level + 1}, Tiles: {total_tiles}")
 
                 for i in range(iterations):
                     elapsed = benchmark_all_tiles(wsi)
                     tiles_per_sec = total_tiles / elapsed
-                    print(f"  Iteration {i+1}/{iterations}: {elapsed:.2f}s ({tiles_per_sec:.1f} tiles/s)")
+                    print(f"  Iteration {i + 1}/{iterations}: {elapsed:.2f}s ({tiles_per_sec:.1f} tiles/s)")
 
-                    results.append({
-                        "file": filename,
-                        "engine": "openslide",
-                        "iteration": i + 1,
-                        "width": width,
-                        "height": height,
-                        "max_level": max_level,
-                        "total_tiles": total_tiles,
-                        "elapsed_sec": elapsed,
-                        "tiles_per_sec": tiles_per_sec,
-                    })
+                    results.append(
+                        {
+                            "file": filename,
+                            "engine": "openslide",
+                            "iteration": i + 1,
+                            "width": width,
+                            "height": height,
+                            "max_level": max_level,
+                            "total_tiles": total_tiles,
+                            "elapsed_sec": elapsed,
+                            "tiles_per_sec": tiles_per_sec,
+                        }
+                    )
             except Exception as e:
                 print(f"  ERROR: {e}")
 
@@ -165,24 +163,26 @@ def run_benchmark(iterations: int) -> list[dict]:
                 max_level = wsi.get_dzi_max_level()
                 total_tiles = count_total_tiles(wsi)
 
-                print(f"  Size: {width}x{height}, Levels: {max_level+1}, Tiles: {total_tiles}")
+                print(f"  Size: {width}x{height}, Levels: {max_level + 1}, Tiles: {total_tiles}")
 
                 for i in range(iterations):
                     elapsed = benchmark_all_tiles(wsi)
                     tiles_per_sec = total_tiles / elapsed
-                    print(f"  Iteration {i+1}/{iterations}: {elapsed:.2f}s ({tiles_per_sec:.1f} tiles/s)")
+                    print(f"  Iteration {i + 1}/{iterations}: {elapsed:.2f}s ({tiles_per_sec:.1f} tiles/s)")
 
-                    results.append({
-                        "file": filename,
-                        "engine": "tifffile",
-                        "iteration": i + 1,
-                        "width": width,
-                        "height": height,
-                        "max_level": max_level,
-                        "total_tiles": total_tiles,
-                        "elapsed_sec": elapsed,
-                        "tiles_per_sec": tiles_per_sec,
-                    })
+                    results.append(
+                        {
+                            "file": filename,
+                            "engine": "tifffile",
+                            "iteration": i + 1,
+                            "width": width,
+                            "height": height,
+                            "max_level": max_level,
+                            "total_tiles": total_tiles,
+                            "elapsed_sec": elapsed,
+                            "tiles_per_sec": tiles_per_sec,
+                        }
+                    )
             except Exception as e:
                 print(f"  ERROR: {e}")
 
@@ -209,9 +209,9 @@ def print_summary(results: list[dict]):
     if not results:
         return
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print("Summary (average tiles/sec)")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     # Group by file and engine
     grouped = defaultdict(list)
@@ -233,17 +233,13 @@ def print_summary(results: list[dict]):
 
 def main():
     parser = argparse.ArgumentParser(description="Benchmark DZI tile extraction")
+    parser.add_argument("--iterations", "-n", type=int, default=3, help="Number of iterations per engine (default: 3)")
     parser.add_argument(
-        "--iterations", "-n",
-        type=int,
-        default=3,
-        help="Number of iterations per engine (default: 3)"
-    )
-    parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         type=str,
         default="benchmark_results.csv",
-        help="Output CSV file (default: benchmark_results.csv)"
+        help="Output CSV file (default: benchmark_results.csv)",
     )
     args = parser.parse_args()
 

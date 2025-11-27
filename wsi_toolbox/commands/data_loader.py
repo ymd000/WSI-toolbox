@@ -96,10 +96,7 @@ class MultipleContext:
 
                 # Validate mask length
                 if len(mask) != patch_count:
-                    raise RuntimeError(
-                        f"Mask length mismatch in {hdf5_path}: "
-                        f"expected {patch_count}, got {len(mask)}"
-                    )
+                    raise RuntimeError(f"Mask length mismatch in {hdf5_path}: expected {patch_count}, got {len(mask)}")
 
                 self._masks.append(mask)
 
@@ -112,10 +109,7 @@ class MultipleContext:
                         dataset="umap",
                     )
                     if umap_path not in f:
-                        raise RuntimeError(
-                            f"UMAP coordinates not found at {umap_path}. "
-                            "Run 'wsi-toolbox umap' first."
-                        )
+                        raise RuntimeError(f"UMAP coordinates not found at {umap_path}. Run 'wsi-toolbox umap' first.")
                     data = f[umap_path][mask]
                     if np.any(np.isnan(data)):
                         raise RuntimeError(f"NaN values in UMAP coordinates at {umap_path}")

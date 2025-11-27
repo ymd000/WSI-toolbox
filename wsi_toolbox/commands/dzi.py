@@ -150,9 +150,7 @@ class DziCommand:
                 tile_path = level_dir / f"{col}_{row}.{ext}"
 
                 # Get tile from WSIFile
-                tile_array = wsi_file.get_dzi_tile(
-                    level, col, row, self.tile_size, self.overlap
-                )
+                tile_array = wsi_file.get_dzi_tile(level, col, row, self.tile_size, self.overlap)
 
                 # Save tile
                 img = Image.fromarray(tile_array)

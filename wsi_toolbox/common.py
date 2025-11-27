@@ -84,7 +84,9 @@ def create_default_model():
         >>> model = create_default_model()  # Creates new UNI model instance
     """
     if _config.model_generator is None:
-        raise RuntimeError("No model generator registered. Call set_default_model() or set_default_model_preset() first.")
+        raise RuntimeError(
+            "No model generator registered. Call set_default_model() or set_default_model_preset() first."
+        )
     return _config.model_generator()
 
 

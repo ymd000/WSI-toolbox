@@ -2,7 +2,6 @@
 Show HDF5 file structure command
 """
 
-
 import h5py
 from pydantic import BaseModel
 

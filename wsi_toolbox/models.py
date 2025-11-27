@@ -1,4 +1,5 @@
-MODEL_NAMES = ['uni', 'gigapath', 'virchow2']
+MODEL_NAMES = ["uni", "gigapath", "virchow2"]
+
 
 def create_foundation_model(model_name: str):
     """

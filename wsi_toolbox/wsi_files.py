@@ -186,9 +186,7 @@ class WSIFile(ABC):
         thumbnail = img.resize((width, height), Image.Resampling.LANCZOS)
         return np.array(thumbnail)
 
-    def _read_for_thumbnail(
-        self, x: int, y: int, w: int, h: int, target_w: int, target_h: int
-    ) -> np.ndarray:
+    def _read_for_thumbnail(self, x: int, y: int, w: int, h: int, target_w: int, target_h: int) -> np.ndarray:
         """Read region for thumbnail. Override for efficient multi-resolution reading.
 
         Args:
@@ -340,9 +338,7 @@ class PyramidalWSIFile(WSIFile):
 
         return best_idx
 
-    def _read_for_thumbnail(
-        self, x: int, y: int, w: int, h: int, target_w: int, target_h: int
-    ) -> np.ndarray:
+    def _read_for_thumbnail(self, x: int, y: int, w: int, h: int, target_w: int, target_h: int) -> np.ndarray:
         """Read region using pyramid levels for efficiency.
 
         Args:
@@ -505,9 +501,7 @@ class OpenSlideFile(PyramidalWSIFile):
     def _build_level_info(self) -> list[NativeLevel]:
         """Build pyramid level information from OpenSlide."""
         levels = []
-        for i, (dim, downsample) in enumerate(
-            zip(self.wsi.level_dimensions, self.wsi.level_downsamples)
-        ):
+        for i, (dim, downsample) in enumerate(zip(self.wsi.level_dimensions, self.wsi.level_downsamples)):
             levels.append(NativeLevel(index=i, width=dim[0], height=dim[1], downsample=downsample))
         return levels
 
