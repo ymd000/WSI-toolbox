@@ -143,6 +143,78 @@ class StreamlitProgress(BaseProgress):
         self.close()
 
 
+class RichProgress(BaseProgress):
+    """Rich progress bar wrapper"""
+
+    def __init__(self, iterable: Optional[Iterable[T]] = None, total: Optional[int] = None, desc: str = "", **kwargs):
+        from rich.progress import (  # noqa: PLC0415
+            BarColumn,
+            MofNCompleteColumn,
+            Progress as RichProgressBar,
+            SpinnerColumn,
+            TextColumn,
+            TimeElapsedColumn,
+            TimeRemainingColumn,
+        )
+
+        self.iterable = iterable
+        self.total = (
+            total
+            if total is not None
+            else (len(iterable) if iterable is not None and hasattr(iterable, "__len__") else None)
+        )
+        self.desc = desc
+        self.n = 0
+
+        self._progress = RichProgressBar(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(bar_width=40),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            TextColumn("•"),
+            TimeRemainingColumn(),
+            transient=False,
+        )
+        self._progress.start()
+        self._task_id = self._progress.add_task(desc, total=self.total)
+
+    def update(self, n: int = 1) -> None:
+        self.n += n
+        self._progress.update(self._task_id, advance=n)
+
+    def set_description(self, desc: str = None, refresh: bool = True) -> None:
+        if desc is not None:
+            self.desc = desc
+            self._progress.update(self._task_id, description=desc)
+
+    def set_postfix(self, ordered_dict=None, **kwargs) -> None:
+        # Rich doesn't have postfix, append to description
+        postfix_dict = {}
+        if ordered_dict:
+            postfix_dict.update(ordered_dict)
+        if kwargs:
+            postfix_dict.update(kwargs)
+
+        if postfix_dict:
+            postfix_str = " ".join(f"[cyan]{k}[/cyan]={v}" for k, v in postfix_dict.items())
+            self._progress.update(self._task_id, description=f"{self.desc} {postfix_str}")
+
+    def refresh(self) -> None:
+        self._progress.refresh()
+
+    def close(self) -> None:
+        self._progress.stop()
+
+    def __iter__(self):
+        if self.iterable is None:
+            raise ValueError("No iterable provided")
+        for obj in self.iterable:
+            yield obj
+            self.update(1)
+        self.close()
+
+
 class DummyProgress(BaseProgress):
     """Dummy progress bar (no output)"""
 
@@ -173,6 +245,39 @@ class DummyProgress(BaseProgress):
             self.update(1)
 
 
+# Registry for progress backends
+_PROGRESS_REGISTRY: dict[str, type[BaseProgress]] = {
+    "tqdm": TqdmProgress,
+    "rich": RichProgress,
+    "streamlit": StreamlitProgress,
+    "dummy": DummyProgress,
+}
+
+
+def register_progress(name: str, cls: type[BaseProgress]) -> None:
+    """
+    Register a custom progress backend.
+
+    Args:
+        name: Backend name (used with set_default_progress)
+        cls: Progress class (must inherit from BaseProgress)
+
+    Example:
+        >>> class MyProgress(BaseProgress):
+        ...     def __init__(self, iterable=None, total=None, desc="", **kwargs):
+        ...         ...
+        ...     def update(self, n=1): ...
+        ...     def set_description(self, desc, refresh=True): ...
+        ...     def close(self): ...
+        ...
+        >>> register_progress('my_backend', MyProgress)
+        >>> set_default_progress('my_backend')
+    """
+    if not issubclass(cls, BaseProgress):
+        raise TypeError(f"{cls.__name__} must inherit from BaseProgress")
+    _PROGRESS_REGISTRY[name] = cls
+
+
 def Progress(
     iterable: Optional[Iterable[T]] = None,
     backend: str = "tqdm",
@@ -185,7 +290,7 @@ def Progress(
 
     Args:
         iterable: Optional iterable to track
-        backend: Backend type ("tqdm", "streamlit", "dummy")
+        backend: Backend type ("tqdm", "rich", "streamlit", "dummy", or custom registered)
         total: Total iterations (required if iterable is None)
         desc: Description text
         **kwargs: Additional arguments passed to the backend
@@ -193,15 +298,17 @@ def Progress(
     Returns:
         BaseProgress instance
     """
-    if backend == "tqdm":
-        return TqdmProgress(iterable=iterable, total=total, desc=desc, **kwargs)
-    elif backend == "streamlit":
+    if backend not in _PROGRESS_REGISTRY:
+        raise ValueError(f"Unknown backend: {backend}. Available: {list(_PROGRESS_REGISTRY.keys())}")
+
+    cls = _PROGRESS_REGISTRY[backend]
+
+    # Special handling for streamlit (may not be installed)
+    if backend == "streamlit":
         try:
-            return StreamlitProgress(iterable=iterable, total=total, desc=desc, **kwargs)
+            return cls(iterable=iterable, total=total, desc=desc, **kwargs)
         except ImportError:
             print("streamlit not found, falling back to dummy progress")
             return DummyProgress(iterable=iterable, total=total, desc=desc, **kwargs)
-    elif backend == "dummy":
-        return DummyProgress(iterable=iterable, total=total, desc=desc, **kwargs)
-    else:
-        raise ValueError(f"Unknown backend: {backend}")
+
+    return cls(iterable=iterable, total=total, desc=desc, **kwargs)

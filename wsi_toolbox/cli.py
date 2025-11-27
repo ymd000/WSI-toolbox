@@ -49,7 +49,7 @@ def build_output_path(input_path: str, namespace: str, filename: str) -> str:
     return str(output_dir / filename)
 
 
-common.set_default_progress("tqdm")
+common.set_default_progress("rich")
 common.set_default_model_preset(DEFAULT_MODEL)
 common.set_default_cluster_cmap("tab20")
 

@@ -37,7 +37,7 @@ def get_config() -> Config:
 
 
 def set_default_progress(backend: str):
-    """Set global default progress backend ('tqdm', 'streamlit', etc.)"""
+    """Set global default progress backend ('tqdm', 'rich', 'streamlit', 'dummy')"""
     _config.progress = backend
 
 
