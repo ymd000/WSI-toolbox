@@ -101,6 +101,18 @@ fix = "ruff check --fix . && ruff format ."
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.hatch.build.targets.sdist]
+exclude = [
+    ",/",
+    "data/",
+    "out/",
+    "weights/",
+    "*.h5",
+    "*.ndpi",
+    "*.svs",
+    "*.tiff",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["wsi_toolbox"]
 
