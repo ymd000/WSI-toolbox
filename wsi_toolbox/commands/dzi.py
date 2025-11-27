@@ -105,9 +105,21 @@ class DziCommand:
         files_dir = output_dir / f"{name}_files"
         files_dir.mkdir(exist_ok=True)
 
-        # Generate all levels
+        # Calculate total tile count for progress
+        total_tiles = 0
+        level_infos = {}
         for level in range(max_level, -1, -1):
-            self._generate_level(wsi_file, files_dir, level)
+            level_width, level_height, cols, rows = wsi_file.get_dzi_level_info(
+                level, self.tile_size
+            )
+            level_infos[level] = (level_width, level_height, cols, rows)
+            total_tiles += cols * rows
+
+        # Generate all levels with single progress bar
+        progress = _progress(total=total_tiles, desc="Generating tiles")
+        for level in range(max_level, -1, -1):
+            self._generate_level(wsi_file, files_dir, level, level_infos[level], progress)
+        progress.close()
 
         # Write DZI XML
         dzi_xml = wsi_file.get_dzi_xml(self.tile_size, self.overlap, self.format)
@@ -131,21 +143,22 @@ class DziCommand:
         wsi_file: PyramidalWSIFile,
         files_dir: Path,
         level: int,
+        level_info: tuple,
+        progress,
     ):
         """Generate all tiles for a single level."""
         level_dir = files_dir / str(level)
         level_dir.mkdir(exist_ok=True)
 
-        level_width, level_height, cols, rows = wsi_file.get_dzi_level_info(level, self.tile_size)
+        level_width, level_height, cols, rows = level_info
 
         if get_config().verbose:
             print(f"Level {level}: {level_width}x{level_height}, {cols}x{rows} tiles")
 
         ext = "png" if self.format == "png" else "jpeg"
 
-        tq = _progress(range(rows))
-        for row in tq:
-            tq.set_description(f"Level {level}: row {row + 1}/{rows}")
+        for row in range(rows):
+            progress.set_description(f"Level {level}: row {row + 1}/{rows}")
             for col in range(cols):
                 tile_path = level_dir / f"{col}_{row}.{ext}"
 
@@ -158,3 +171,4 @@ class DziCommand:
                     img.save(tile_path, "PNG")
                 else:
                     img.save(tile_path, "JPEG", quality=self.jpeg_quality)
+                progress.update(1)
