@@ -4,6 +4,54 @@ from typing import Callable
 import numpy as np
 
 
+def reorder_clusters_by_pca(clusters: np.ndarray, pca_values: np.ndarray) -> np.ndarray:
+    """
+    Reorder cluster IDs based on PCA distribution for consistent visualization.
+
+    The goal is to ensure that when clusters are plotted in a violin plot (left to right),
+    the distribution rises gradually from left and steeply on the right.
+
+    Algorithm:
+    1. Sort clusters by their mean PCA1 value
+    2. Check if median of sorted means is below or above the midpoint
+    3. If median > midpoint, flip the order so lower cluster IDs have lower PCA values
+
+    This ensures consistent ordering regardless of PCA sign ambiguity.
+
+    Args:
+        clusters: Cluster labels array [N]
+        pca_values: PCA1 values array [N] (first principal component)
+
+    Returns:
+        Reordered cluster labels with same shape
+    """
+    unique_clusters = [c for c in np.unique(clusters) if c >= 0]
+    if len(unique_clusters) <= 1:
+        return clusters
+
+    # 1. Compute mean PCA1 for each cluster
+    cluster_means = {}
+    for c in unique_clusters:
+        cluster_means[c] = np.mean(pca_values[clusters == c])
+
+    # 2. Sort clusters by mean PCA1
+    sorted_clusters = sorted(unique_clusters, key=lambda c: cluster_means[c])
+    sorted_means = [cluster_means[c] for c in sorted_clusters]
+
+    # 3. Check distribution: flip if median is on the higher side
+    midpoint = (sorted_means[0] + sorted_means[-1]) / 2
+    median_mean = np.median(sorted_means)
+
+    if median_mean > midpoint:
+        sorted_clusters = sorted_clusters[::-1]
+
+    # 4. Build remapping
+    old_to_new = {old: new for new, old in enumerate(sorted_clusters)}
+
+    # 5. Apply remapping (preserve -1 for filtered)
+    return np.array([old_to_new.get(c, c) for c in clusters])
+
+
 def find_optimal_components(features, threshold=0.95):
     # Lazy import: sklearn is slow to load (~600ms), defer until needed
     from sklearn.decomposition import PCA  # noqa: PLC0415

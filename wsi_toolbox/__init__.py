@@ -65,7 +65,7 @@ from .models import (
 )
 
 # Utility functions
-from .utils.analysis import leiden_cluster
+from .utils.analysis import leiden_cluster, reorder_clusters_by_pca
 
 # WSI file classes
 from .wsi_files import (
@@ -118,4 +118,5 @@ __all__ = [
     "create_foundation_model",
     # Utilities
     "leiden_cluster",
+    "reorder_clusters_by_pca",
 ]

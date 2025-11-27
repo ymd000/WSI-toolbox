@@ -6,7 +6,7 @@ import h5py
 import numpy as np
 from pydantic import BaseModel
 
-from ..utils.analysis import leiden_cluster
+from ..utils.analysis import leiden_cluster, reorder_clusters_by_pca
 from ..utils.hdf5_paths import build_cluster_path, build_namespace, ensure_groups
 from . import _get, _progress, get_config
 from .data_loader import MultipleContext
@@ -59,6 +59,7 @@ class ClusteringCommand:
         namespace: str | None = None,
         parent_filters: list[list[int]] | None = None,
         source: str = "features",
+        sort_clusters: bool = True,
         overwrite: bool = False,
         model_name: str | None = None,
     ):
@@ -68,6 +69,7 @@ class ClusteringCommand:
             namespace: Explicit namespace (None = auto-generate)
             parent_filters: Hierarchical filters, e.g., [[1,2,3], [4,5]]
             source: "features" or "umap"
+            sort_clusters: Reorder cluster IDs by PCA distribution (default: True)
             overwrite: Overwrite existing clusters
             model_name: Model name (None = use global default)
         """
@@ -75,6 +77,7 @@ class ClusteringCommand:
         self.namespace = namespace
         self.parent_filters = parent_filters or []
         self.source = source
+        self.sort_clusters = sort_clusters
         self.overwrite = overwrite
         self.model_name = _get("model_name", model_name)
 
@@ -148,6 +151,17 @@ class ClusteringCommand:
                 resolution=self.resolution,
                 on_progress=on_progress,
             )
+
+            # Reorder cluster IDs by PCA distribution for consistent visualization
+            if self.sort_clusters:
+                pbar.set_description("Sorting clusters")
+                features = ctx.load_features(source="features")
+                from sklearn.decomposition import PCA  # noqa: PLC0415
+
+                pca = PCA(n_components=1)
+                pca1 = pca.fit_transform(features).flatten()
+                self.clusters = reorder_clusters_by_pca(self.clusters, pca1)
+
             cluster_count = len(set(self.clusters))
 
             # Write results
@@ -182,4 +196,3 @@ class ClusteringCommand:
                 ds.attrs["resolution"] = self.resolution
                 ds.attrs["source"] = self.source
                 ds.attrs["model"] = self.model_name
-
