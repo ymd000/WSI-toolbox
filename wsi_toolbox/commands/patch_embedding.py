@@ -85,47 +85,48 @@ class PatchEmbeddingCommand:
         # Lazy import: torch is slow to load (~800ms), defer until needed
         import torch  # noqa: PLC0415
 
+        # Check if already exists and get patch count (before model init)
+        with h5py.File(hdf5_path, "r") as f:
+            if not self.overwrite:
+                if self.with_latent:
+                    if (self.feature_name in f) and (self.latent_feature_name in f):
+                        if get_config().verbose:
+                            print("Already extracted. Skipped.")
+                        return PatchEmbeddingResult(skipped=True)
+                    if (self.feature_name in f) or (self.latent_feature_name in f):
+                        raise RuntimeError(f"Either {self.feature_name} or {self.latent_feature_name} exists.")
+                else:
+                    if self.feature_name in f:
+                        if get_config().verbose:
+                            print("Already extracted. Skipped.")
+                        return PatchEmbeddingResult(skipped=True)
+
+            patch_count = f["metadata/patch_count"][()]
+
+        # Create batch indices and progress bar
+        batch_idx = [(i, min(i + self.batch_size, patch_count)) for i in range(0, patch_count, self.batch_size)]
+        progress = _progress(total=len(batch_idx) + 1, desc="Initializing model")
+
         # Load model (uses globally registered model generator)
         model = create_default_model()
         model = model.eval().to(self.device)
+        latent_size = model.patch_embed.proj.kernel_size[0]
 
         # Normalization parameters
         mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1).to(self.device)
         std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1).to(self.device)
 
+        progress.update(1)
+        progress.set_description("Processing batches")
+
         done = False
 
         try:
             with h5py.File(hdf5_path, "r+") as f:
-                latent_size = model.patch_embed.proj.kernel_size[0]
-
-                # Check if already exists
-                if not self.overwrite:
-                    if self.with_latent:
-                        if (self.feature_name in f) and (self.latent_feature_name in f):
-                            if get_config().verbose:
-                                print("Already extracted. Skipped.")
-                            done = True
-                            return PatchEmbeddingResult(skipped=True)
-                        if (self.feature_name in f) or (self.latent_feature_name in f):
-                            raise RuntimeError(f"Either {self.feature_name} or {self.latent_feature_name} exists.")
-                    else:
-                        if self.feature_name in f:
-                            if get_config().verbose:
-                                print("Already extracted. Skipped.")
-                            done = True
-                            return PatchEmbeddingResult(skipped=True)
-
                 # Delete if overwrite
                 if self.overwrite:
                     safe_del(f, self.feature_name)
                     safe_del(f, self.latent_feature_name)
-
-                # Get patch count
-                patch_count = f["metadata/patch_count"][()]
-
-                # Create batch indices
-                batch_idx = [(i, min(i + self.batch_size, patch_count)) for i in range(0, patch_count, self.batch_size)]
 
                 # Create datasets
                 f.create_dataset(self.feature_name, shape=(patch_count, model.num_features), dtype=np.float32)
@@ -137,8 +138,7 @@ class PatchEmbeddingCommand:
                     )
 
                 # Process batches
-                tq = _progress(batch_idx)
-                for i0, i1 in tq:
+                for i0, i1 in batch_idx:
                     # Load batch
                     x = f["patches"][i0:i1]
                     x = (torch.from_numpy(x) / 255).permute(0, 3, 1, 2)  # BHWC->BCHW
@@ -164,8 +164,10 @@ class PatchEmbeddingCommand:
                     del x, h_tensor
                     torch.cuda.empty_cache()
 
-                    tq.set_description(f"Processing {i0}-{i1} (total={patch_count})")
-                    tq.refresh()
+                    progress.set_description(f"Processing {i0}-{i1} (total={patch_count})")
+                    progress.update(1)
+
+                progress.close()
 
                 if get_config().verbose:
                     print(f"Embeddings dimension: {f[self.feature_name].shape}")
