@@ -20,7 +20,7 @@ from ..common import (
 )
 from .clustering import ClusteringCommand
 from .dzi import DziCommand
-from .patch_embedding import PatchEmbeddingCommand
+from .feature_extraction import FeatureExtractionCommand
 from .pca import PCACommand
 from .preview import (
     BasePreviewCommand,
@@ -52,7 +52,7 @@ __all__ = [
     "_progress",
     # Commands
     "Wsi2HDF5Command",
-    "PatchEmbeddingCommand",
+    "FeatureExtractionCommand",
     "UmapCommand",
     "ClusteringCommand",
     "PCACommand",

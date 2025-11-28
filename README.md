@@ -37,8 +37,8 @@ For development, use `uv run wt`.
 # Extract tile patches from WSI into HDF5
 wt wsi2h5 -i input.ndpi -o output.h5
 
-# Extract patch embeddings using foundation model
-wt embed -i output.h5
+# Extract features using foundation model
+wt extract -i output.h5
 
 # Run Leiden clustering on embeddings
 wt cluster -i output.h5

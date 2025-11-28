@@ -46,11 +46,11 @@ print(f"Scale: {result.scale}")
 print(f"Grid: {result.cols} x {result.rows}")
 ```
 
-### PatchEmbeddingCommand
+### FeatureExtractionCommand
 
-Extract embeddings from patches using foundation models.
+Extract features from patches using foundation models.
 
-**CLI equivalent:** `wt embed`
+**CLI equivalent:** `wt extract`
 
 ```python
 import wsi_toolbox as wt
@@ -58,7 +58,7 @@ import wsi_toolbox as wt
 wt.set_default_model_preset('uni')
 wt.set_default_device('cuda')
 
-cmd = wt.PatchEmbeddingCommand(
+cmd = wt.FeatureExtractionCommand(
     batch_size=256,
     with_latent=False,   # Extract latent features
     overwrite=False,
@@ -295,9 +295,9 @@ wsi_result = wsi_cmd('input.ndpi', 'output.h5')
 print(f"Patches: {wsi_result.patch_count}")
 
 # 2. Feature extraction
-emb_cmd = wt.PatchEmbeddingCommand(batch_size=256)
-emb_result = emb_cmd('output.h5')
-print(f"Features: {emb_result.feature_dim}D")
+extract_cmd = wt.FeatureExtractionCommand(batch_size=256)
+extract_result = extract_cmd('output.h5')
+print(f"Features: {extract_result.feature_dim}D")
 
 # 3. Clustering
 cluster_cmd = wt.ClusteringCommand(resolution=1.0)

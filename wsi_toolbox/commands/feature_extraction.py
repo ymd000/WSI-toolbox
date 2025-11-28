@@ -1,5 +1,5 @@
 """
-Patch embedding extraction command
+Feature extraction command using foundation models
 """
 
 import gc
@@ -16,8 +16,8 @@ from . import _get, _progress
 logger = logging.getLogger(__name__)
 
 
-class PatchEmbeddingResult(BaseModel):
-    """Result of patch embedding extraction"""
+class FeatureExtractResult(BaseModel):
+    """Result of feature extraction"""
 
     feature_dim: int = 0
     patch_count: int = 0
@@ -26,9 +26,9 @@ class PatchEmbeddingResult(BaseModel):
     skipped: bool = False
 
 
-class PatchEmbeddingCommand:
+class FeatureExtractionCommand:
     """
-    Extract embeddings from patches using foundation models
+    Extract features from patches using foundation models
 
     Usage:
         # Set global config once
@@ -36,7 +36,7 @@ class PatchEmbeddingCommand:
         commands.set_default_device('cuda')
 
         # Create and run command
-        cmd = PatchEmbeddingCommand(batch_size=256, with_latent=False)
+        cmd = FeatureExtractionCommand(batch_size=256, with_latent=False)
         result = cmd(hdf5_path='data.h5')
     """
 
@@ -75,7 +75,7 @@ class PatchEmbeddingCommand:
         self.feature_name = f"{self.model_name}/features"
         self.latent_feature_name = f"{self.model_name}/latent_features"
 
-    def __call__(self, hdf5_path: str) -> PatchEmbeddingResult:
+    def __call__(self, hdf5_path: str) -> FeatureExtractResult:
         """
         Execute embedding extraction
 
@@ -83,7 +83,7 @@ class PatchEmbeddingCommand:
             hdf5_path: Path to HDF5 file
 
         Returns:
-            PatchEmbeddingResult: Result metadata (feature_dim, patch_count, skipped, etc.)
+            FeatureExtractResult: Result metadata (feature_dim, patch_count, skipped, etc.)
         """
         # Lazy import: torch is slow to load (~800ms), defer until needed
         import torch  # noqa: PLC0415
@@ -94,13 +94,13 @@ class PatchEmbeddingCommand:
                 if self.with_latent:
                     if (self.feature_name in f) and (self.latent_feature_name in f):
                         logger.info("Already extracted. Skipped.")
-                        return PatchEmbeddingResult(skipped=True)
+                        return FeatureExtractResult(skipped=True)
                     if (self.feature_name in f) or (self.latent_feature_name in f):
                         raise RuntimeError(f"Either {self.feature_name} or {self.latent_feature_name} exists.")
                 else:
                     if self.feature_name in f:
                         logger.info("Already extracted. Skipped.")
-                        return PatchEmbeddingResult(skipped=True)
+                        return FeatureExtractResult(skipped=True)
 
             patch_count = f["metadata/patch_count"][()]
 
@@ -173,7 +173,7 @@ class PatchEmbeddingCommand:
                 logger.debug(f"Embeddings dimension: {f[self.feature_name].shape}")
 
                 done = True
-                return PatchEmbeddingResult(
+                return FeatureExtractResult(
                     feature_dim=model.num_features,
                     patch_count=patch_count,
                     model=self.model_name,

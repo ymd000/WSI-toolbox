@@ -230,15 +230,15 @@ class CLI(AutoCLI):
         print("Renamed ", tmp_path, " -> ", output_path)
         print(f"done: {result.patch_count} patches extracted")
 
-    class EmbedArgs(CommonArgs):
+    class ExtractArgs(CommonArgs):
         input_path: str = Field(..., l="--in", s="-i")
         batch_size: int = Field(512, s="-B")
         overwrite: bool = Field(False, s="-O")
         with_latent_features: bool = Field(False, s="-L")
 
-    def run_embed(self, a: EmbedArgs):
+    def run_extract(self, a: ExtractArgs):
         # Use new command pattern
-        cmd = commands.PatchEmbeddingCommand(
+        cmd = commands.FeatureExtractionCommand(
             batch_size=a.batch_size, with_latent=a.with_latent_features, overwrite=a.overwrite
         )
         result = cmd(a.input_path)
