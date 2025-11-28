@@ -2,13 +2,17 @@
 UMAP embedding command for dimensionality reduction
 """
 
+import logging
+
 import h5py
 import numpy as np
 from pydantic import BaseModel
 
 from ..utils.hdf5_paths import build_cluster_path, build_namespace, ensure_groups
-from . import _get, _progress, get_config
+from . import _get, _progress
 from .data_loader import MultipleContext
+
+logger = logging.getLogger(__name__)
 
 
 class UmapResult(BaseModel):
@@ -104,8 +108,7 @@ class UmapCommand:
                 if target_path in f:
                     umap_coords = f[target_path][:]
                     n_samples = np.sum(~np.isnan(umap_coords[:, 0]))
-                    if get_config().verbose:
-                        print(f"UMAP already exists at {target_path}")
+                    logger.info(f"UMAP already exists at {target_path}")
                     return UmapResult(
                         n_samples=n_samples,
                         n_components=self.n_components,
@@ -138,10 +141,8 @@ class UmapCommand:
             self._write_results(ctx, target_path)
             pbar.update(1)
 
-        # Verbose output after progress bar closes
-        if get_config().verbose:
-            print(f"Computing UMAP: {len(features)} samples → {self.n_components}D")
-            print(f"Wrote {target_path} to {len(hdf5_paths)} file(s)")
+        logger.debug(f"Computing UMAP: {len(features)} samples → {self.n_components}D")
+        logger.info(f"Wrote {target_path} to {len(hdf5_paths)} file(s)")
 
         return UmapResult(
             n_samples=len(features), n_components=self.n_components, namespace=self.namespace, target_path=target_path

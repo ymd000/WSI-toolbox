@@ -14,6 +14,7 @@ Class hierarchy:
         └── PyramidalTiffFile
 """
 
+import logging
 import math
 import os
 from abc import ABC, abstractmethod
@@ -25,6 +26,8 @@ import tifffile
 import zarr
 from openslide import OpenSlide
 from PIL import Image
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -600,7 +603,7 @@ def create_wsi_file(image_path: str, engine: str = "auto", mpp: float = 0.5) -> 
         else:
             # Default to openslide for WSI formats (.svs, .ndpi, etc.)
             engine = "openslide"
-        print(f"using {engine} engine for {basename}")
+        logger.debug(f"using {engine} engine for {basename}")
 
     engine = engine.lower()
 
@@ -609,7 +612,7 @@ def create_wsi_file(image_path: str, engine: str = "auto", mpp: float = 0.5) -> 
             return OpenSlideFile(image_path)
         except Exception as e:
             # Fallback to tifffile for NDPI files that OpenSlide can't handle
-            print(f"OpenSlide failed for {basename}, falling back to tifffile: {e}")
+            logger.warning(f"OpenSlide failed for {basename}, falling back to tifffile: {e}")
             return PyramidalTiffFile(image_path)
     elif engine == "tifffile":
         return PyramidalTiffFile(image_path)

@@ -2,14 +2,18 @@
 Clustering command for WSI features
 """
 
+import logging
+
 import h5py
 import numpy as np
 from pydantic import BaseModel
 
 from ..utils.analysis import leiden_cluster, reorder_clusters_by_pca
 from ..utils.hdf5_paths import build_cluster_path, build_namespace, ensure_groups
-from . import _get, _progress, get_config
+from . import _get, _progress
 from .data_loader import MultipleContext
+
+logger = logging.getLogger(__name__)
 
 
 class ClusteringResult(BaseModel):
@@ -123,8 +127,7 @@ class ClusteringCommand:
                 if target_path in f:
                     clusters = f[target_path][:]
                     cluster_count = len([c for c in set(clusters) if c >= 0])
-                    if get_config().verbose:
-                        print(f"Clusters already exist at {target_path}")
+                    logger.info(f"Clusters already exist at {target_path}")
                     return ClusteringResult(
                         cluster_count=cluster_count,
                         feature_count=np.sum(clusters >= 0),
@@ -169,11 +172,9 @@ class ClusteringCommand:
             self._write_results(ctx, target_path)
             pbar.update(1)
 
-        # Verbose output after progress bar closes
-        if get_config().verbose:
-            print(f"Loaded {len(data)} samples from {self.source}")
-            print(f"Found {cluster_count} clusters")
-            print(f"Wrote {target_path} to {len(hdf5_paths)} file(s)")
+        logger.debug(f"Loaded {len(data)} samples from {self.source}")
+        logger.debug(f"Found {cluster_count} clusters")
+        logger.info(f"Wrote {target_path} to {len(hdf5_paths)} file(s)")
 
         return ClusteringResult(cluster_count=cluster_count, feature_count=len(data), target_path=target_path)
 

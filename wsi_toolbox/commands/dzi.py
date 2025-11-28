@@ -2,13 +2,16 @@
 DZI export command for Deep Zoom Image format
 """
 
+import logging
 from pathlib import Path
 
 from PIL import Image
 from pydantic import BaseModel
 
 from ..wsi_files import PyramidalWSIFile, WSIFile, create_wsi_file
-from . import _progress, get_config
+from . import _progress
+
+logger = logging.getLogger(__name__)
 
 
 class DziResult(BaseModel):
@@ -95,10 +98,9 @@ class DziCommand:
         width, height = wsi_file.get_original_size()
         max_level = wsi_file.get_dzi_max_level()
 
-        if get_config().verbose:
-            print(f"Original size: {width}x{height}")
-            print(f"Tile size: {self.tile_size}, Overlap: {self.overlap}")
-            print(f"Max zoom level: {max_level}")
+        logger.debug(f"Original size: {width}x{height}")
+        logger.debug(f"Tile size: {self.tile_size}, Overlap: {self.overlap}")
+        logger.debug(f"Max zoom level: {max_level}")
 
         # Setup directories
         dzi_path = output_dir / f"{name}.dzi"
@@ -126,8 +128,7 @@ class DziCommand:
         with open(dzi_path, "w", encoding="utf-8") as f:
             f.write(dzi_xml)
 
-        if get_config().verbose:
-            print(f"DZI export complete: {dzi_path}")
+        logger.info(f"DZI export complete: {dzi_path}")
 
         return DziResult(
             dzi_path=str(dzi_path),
@@ -152,8 +153,7 @@ class DziCommand:
 
         level_width, level_height, cols, rows = level_info
 
-        if get_config().verbose:
-            print(f"Level {level}: {level_width}x{level_height}, {cols}x{rows} tiles")
+        logger.debug(f"Level {level}: {level_width}x{level_height}, {cols}x{rows} tiles")
 
         ext = "png" if self.format == "png" else "jpeg"
 

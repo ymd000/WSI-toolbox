@@ -2,6 +2,7 @@
 WSI to HDF5 conversion command
 """
 
+import logging
 import os
 from typing import Callable
 
@@ -12,7 +13,9 @@ from pydantic import BaseModel
 
 from ..utils.white import create_white_detector
 from ..wsi_files import create_wsi_file
-from . import _progress, get_config
+from . import _progress
+
+logger = logging.getLogger(__name__)
 
 
 class Wsi2HDF5Result(BaseModel):
@@ -198,18 +201,16 @@ class Wsi2HDF5Command:
                 os.remove(output_path)
             raise
 
-        # Verbose output after progress bar closes
-        if get_config().verbose:
-            print(f"Original mpp: {original_mpp:.6f}")
-            print(f"Image mpp: {mpp:.6f}")
-            print(f"Target resolutions: {W} x {H}")
-            print(f"Obtained resolutions: {x_patch_count * S} x {y_patch_count * S}")
-            print(f"Scale: {scale}")
-            print(f"Patch size: {T}")
-            print(f"Scaled patch size: {S}")
-            print(f"Row count: {y_patch_count}")
-            print(f"Col count: {x_patch_count}")
-            print(f"{patch_count} patches were selected.")
+        logger.debug(f"Original mpp: {original_mpp:.6f}")
+        logger.debug(f"Image mpp: {mpp:.6f}")
+        logger.debug(f"Target resolutions: {W} x {H}")
+        logger.debug(f"Obtained resolutions: {x_patch_count * S} x {y_patch_count * S}")
+        logger.debug(f"Scale: {scale}")
+        logger.debug(f"Patch size: {T}")
+        logger.debug(f"Scaled patch size: {S}")
+        logger.debug(f"Row count: {y_patch_count}")
+        logger.debug(f"Col count: {x_patch_count}")
+        logger.info(f"{patch_count} patches were selected.")
 
         return Wsi2HDF5Result(
             mpp=mpp,

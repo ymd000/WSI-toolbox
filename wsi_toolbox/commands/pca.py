@@ -2,13 +2,17 @@
 PCA scoring command for feature analysis
 """
 
+import logging
+
 import h5py
 import numpy as np
 from pydantic import BaseModel
 
 from ..utils.hdf5_paths import build_cluster_path, build_namespace, ensure_groups
-from . import _get, _progress, get_config
+from . import _get, _progress
 from .data_loader import MultipleContext
+
+logger = logging.getLogger(__name__)
 
 
 def sigmoid(x):
@@ -125,8 +129,7 @@ class PCACommand:
                 if target_path in f:
                     scores = f[target_path][:]
                     n_samples = np.sum(~np.isnan(scores[:, 0]) if scores.ndim > 1 else ~np.isnan(scores))
-                    if get_config().verbose:
-                        print(f"PCA scores already exist at {target_path}")
+                    logger.info(f"PCA scores already exist at {target_path}")
                     return PCAResult(
                         n_samples=n_samples,
                         n_components=self.n_components,
@@ -153,10 +156,8 @@ class PCACommand:
             self._write_results(ctx, target_path)
             pbar.update(1)
 
-        # Verbose output after progress bar closes
-        if get_config().verbose:
-            print(f"Computed PCA: {len(features)} samples → {self.n_components}D")
-            print(f"Wrote {target_path} to {len(hdf5_paths)} file(s)")
+        logger.debug(f"Computed PCA: {len(features)} samples → {self.n_components}D")
+        logger.info(f"Wrote {target_path} to {len(hdf5_paths)} file(s)")
 
         return PCAResult(
             n_samples=len(features), n_components=self.n_components, namespace=self.namespace, target_path=target_path

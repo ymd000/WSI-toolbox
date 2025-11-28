@@ -3,6 +3,7 @@ Patch embedding extraction command
 """
 
 import gc
+import logging
 
 import h5py
 import numpy as np
@@ -10,7 +11,9 @@ from pydantic import BaseModel
 
 from ..common import create_default_model
 from ..utils import safe_del
-from . import _get, _progress, get_config
+from . import _get, _progress
+
+logger = logging.getLogger(__name__)
 
 
 class PatchEmbeddingResult(BaseModel):
@@ -90,15 +93,13 @@ class PatchEmbeddingCommand:
             if not self.overwrite:
                 if self.with_latent:
                     if (self.feature_name in f) and (self.latent_feature_name in f):
-                        if get_config().verbose:
-                            print("Already extracted. Skipped.")
+                        logger.info("Already extracted. Skipped.")
                         return PatchEmbeddingResult(skipped=True)
                     if (self.feature_name in f) or (self.latent_feature_name in f):
                         raise RuntimeError(f"Either {self.feature_name} or {self.latent_feature_name} exists.")
                 else:
                     if self.feature_name in f:
-                        if get_config().verbose:
-                            print("Already extracted. Skipped.")
+                        logger.info("Already extracted. Skipped.")
                         return PatchEmbeddingResult(skipped=True)
 
             patch_count = f["metadata/patch_count"][()]
@@ -169,8 +170,7 @@ class PatchEmbeddingCommand:
 
                 progress.close()
 
-                if get_config().verbose:
-                    print(f"Embeddings dimension: {f[self.feature_name].shape}")
+                logger.debug(f"Embeddings dimension: {f[self.feature_name].shape}")
 
                 done = True
                 return PatchEmbeddingResult(
@@ -181,16 +181,15 @@ class PatchEmbeddingCommand:
                 )
 
         finally:
-            if done and get_config().verbose:
-                print(f"Wrote {self.feature_name}")
-            elif not done:
+            if done:
+                logger.info(f"Wrote {self.feature_name}")
+            else:
                 # Cleanup on error
                 with h5py.File(hdf5_path, "a") as f:
                     safe_del(f, self.feature_name)
                     if self.with_latent:
                         safe_del(f, self.latent_feature_name)
-                if get_config().verbose:
-                    print(f"ABORTED! Deleted {self.feature_name}")
+                logger.warning(f"ABORTED! Deleted {self.feature_name}")
 
             # Cleanup
             del model, mean, std

@@ -2,6 +2,8 @@
 Preview generation commands using Template Method Pattern
 """
 
+import logging
+
 import h5py
 import numpy as np
 from matplotlib import colors as mcolors
@@ -11,6 +13,8 @@ from PIL import Image, ImageFont
 from ..utils import create_frame, get_platform_font
 from ..utils.hdf5_paths import build_cluster_path
 from . import _get, _get_cluster_color, _progress
+
+logger = logging.getLogger(__name__)
 
 
 class BasePreviewCommand:
@@ -289,7 +293,7 @@ class PreviewLatentPCACommand(BasePreviewCommand):
         # Validate dyadicity
         assert latent_size**2 == s[1]
         if self.size % latent_size != 0:
-            print(f"WARNING: {self.size} is not divisible by {latent_size}")
+            logger.warning(f"{self.size} is not divisible by {latent_size}")
 
         # Apply PCA
         pca = PCA(n_components=3)
@@ -359,7 +363,7 @@ class PreviewLatentClusterCommand(BasePreviewCommand):
         # Validate dyadicity
         assert latent_size**2 == s[1]
         if self.size % latent_size != 0:
-            print(f"WARNING: {self.size} is not divisible by {latent_size}")
+            logger.warning(f"{self.size} is not divisible by {latent_size}")
 
         # Apply colormap
         cmap = plt.get_cmap("tab20")

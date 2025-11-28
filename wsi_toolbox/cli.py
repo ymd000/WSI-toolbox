@@ -1,3 +1,4 @@
+import logging
 import os
 import warnings
 from pathlib import Path
@@ -126,11 +127,16 @@ class CLI(AutoCLI):
     class CommonArgs(BaseModel):
         seed: int = get_global_seed()
         model: str = param(DEFAULT_MODEL, l="--model-name", s="-M")
-        pass
+        verbose: bool = param(False, s="-v")
 
     def prepare(self, a: CommonArgs):
         fix_global_seed(a.seed)
         common.set_default_model_preset(a.model)
+        logging.basicConfig(
+            format="[wsi-toolbox] %(levelname)s - %(message)s",
+            level=logging.DEBUG if a.verbose else logging.INFO,
+        )
+
 
     def _parse_white_detect(self, detect_white: list[str]) -> tuple[str, float | None]:
         """
@@ -729,7 +735,6 @@ class CLI(AutoCLI):
 
 
 def main():
-    """Entry point for wsi-toolbox CLI command."""
     cli = CLI()
     cli.run()
 

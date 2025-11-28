@@ -1,6 +1,9 @@
+import logging
 from typing import Iterable, Optional, TypeVar
 
 from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -308,7 +311,7 @@ def Progress(
         try:
             return cls(iterable=iterable, total=total, desc=desc, **kwargs)
         except ImportError:
-            print("streamlit not found, falling back to dummy progress")
+            logger.warning("streamlit not found, falling back to dummy progress")
             return DummyProgress(iterable=iterable, total=total, desc=desc, **kwargs)
 
     return cls(iterable=iterable, total=total, desc=desc, **kwargs)
