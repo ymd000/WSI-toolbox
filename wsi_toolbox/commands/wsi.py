@@ -152,6 +152,7 @@ class Wsi2HDF5Command:
                     compression="gzip",
                     compression_opts=9,
                 )
+                total_patches.attrs["writing"] = True
 
                 # Extract patches row by row
                 cursor = 0
@@ -190,8 +191,10 @@ class Wsi2HDF5Command:
 
                 # Resize to actual patch count and save coordinates
                 patch_count = len(coordinates)
-                f.create_dataset("coordinates", data=coordinates)
                 f["patches"].resize((patch_count, S, S, 3))
+                f["patches"].attrs["writing"] = False
+
+                f.create_dataset("coordinates", data=coordinates)
                 f.create_dataset("metadata/patch_count", data=patch_count)
                 f.attrs["patch_count"] = patch_count
 

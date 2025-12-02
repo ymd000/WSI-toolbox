@@ -8,7 +8,6 @@ import h5py
 import numpy as np
 from pydantic import BaseModel
 
-from ..utils import writing_dataset
 from ..utils.analysis import leiden_cluster, reorder_clusters_by_pca
 from ..utils.hdf5_paths import build_cluster_path, build_namespace, ensure_groups
 from . import _get, _progress
@@ -194,7 +193,7 @@ class ClusteringCommand:
                 full_clusters = np.full(len(file_slice.mask), -1, dtype=clusters.dtype)
                 full_clusters[file_slice.mask] = clusters
 
-                with writing_dataset(f, target_path, data=full_clusters) as ds:
-                    ds.attrs["resolution"] = self.resolution
-                    ds.attrs["source"] = self.source
-                    ds.attrs["model"] = self.model_name
+                ds = f.create_dataset(target_path, data=full_clusters)
+                ds.attrs["resolution"] = self.resolution
+                ds.attrs["source"] = self.source
+                ds.attrs["model"] = self.model_name

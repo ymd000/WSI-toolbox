@@ -139,6 +139,16 @@ uni/default/filter/1+2+3/filter/0+1/clusters
 
 Each level stores its own clusters, umap, pca results independently.
 
+### Dataset Writing Status
+
+Large datasets (`patches`, `features`, `latent_features`) have a `writing` attribute to indicate write status (`True` during write, `False` when complete). Incomplete datasets are automatically deleted on error.
+
+```python
+ds = f['patches']  # or f['uni/features']
+if ds.attrs.get('writing', False):
+    raise RuntimeError('Dataset is incomplete')
+```
+
 ## Features
 
 - WSI processing (.ndpi, .svs, .tiff → HDF5)

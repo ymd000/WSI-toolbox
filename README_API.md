@@ -277,7 +277,11 @@ import wsi_toolbox as wt
 model = wt.create_foundation_model('uni') # 'gigapath' and 'virchow2' are also available.
 ```
 
-## Utilities
+## Notes
+
+### Dataset Writing Status
+
+Large datasets (`patches`, `features`, `latent_features`) have a `writing` attribute to detect incomplete data during sequential writes. See [README.md](README.md#dataset-writing-status) for details.
 
 
 ## Complete Example
